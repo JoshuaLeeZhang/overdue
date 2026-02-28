@@ -1,14 +1,16 @@
 # Overdue
 
-**An autonomous academic web agent** that reduces student stress by automating the assignments that are wastes of time. It runs in the background: monitoring coursework, reminding you about deadlines, auto-completing busywork, and reviewing your submissions against rubrics so nothing slips.
+**A web agent for academic busywork.** Overdue is an autonomous agent that runs in the browser and on the web: it monitors your coursework, reminds you about deadlines, auto-completes tedious assignments, and reviews your submissions against rubrics so nothing slips.
 
-Unlike traditional productivity tools that require constant manual checking, Overdue operates **proactively**. It functions like a digital executive assistant: it observes incoming academic responsibilities, evaluates urgency and complexity, and organizes work into a clear execution pipeline. Let the AI handle the stupid assignments so you can focus on what actually matters.
+The core of this project is building a **real web agent**—software that can navigate learning management systems, interact with course pages, and automate the workflows students repeat every semester. Unlike chatbots or static tools, Overdue operates **proactively** in the background: it observes incoming academic responsibilities, evaluates urgency and complexity, and organizes work into a clear execution pipeline. Let the agent handle the busywork assignments so you can focus on what actually matters.
 
 ---
 
 ## How It Works
 
-1. **Ingest** — Assignment data enters the system via authorized integrations, structured imports, or user-provided inputs.
+The web agent ingests, plans, and acts on your academic workload:
+
+1. **Ingest** — Assignment data enters the system via authorized integrations (e.g. LMS access), structured imports, or user-provided inputs.
 
 2. **Analyze** — A prioritization engine evaluates each task using deadlines, estimated workload, difficulty, and scheduling constraints.
 
@@ -21,6 +23,8 @@ Unlike traditional productivity tools that require constant manual checking, Ove
 ---
 
 ## Key Features
+
+- **Web agent first** — Built as an agent that operates on the web: navigates course sites, interacts with assignment interfaces, and automates browser-based academic workflows.
 
 - **Proactive monitoring & reminders** — Tracks coursework and deadlines and reminds you so you never miss an assignment.
 
@@ -52,16 +56,16 @@ Less time on stupid assignments, fewer surprises, better alignment with what ins
 
 ## Technical Concepts
 
-The project integrates several advanced ideas in one system:
+This project is centered on building a **web agent** and integrates several ideas in one system:
 
-- **Autonomous agents** — Background behavior that observes, decides, and acts without constant user input.  
-- **Workflow orchestration** — Coordinating multi-step processes and state transitions.  
+- **Web agent** — An autonomous agent that runs in or against the web: browses pages, fills forms, navigates LMS/course sites, and performs academic workflows without constant user input.  
+- **Workflow orchestration** — Coordinating multi-step processes and state transitions across web interfaces.  
 - **Task prioritization** — Algorithms that weigh deadlines, effort, and constraints.  
-- **Asynchronous processing pipelines** — Non-blocking, scheduled execution.  
-- **Human–AI collaboration** — Interfaces that make the agent’s state and outputs visible and actionable.
+- **Asynchronous processing pipelines** — Non-blocking, scheduled execution so the agent can work in the background.  
+- **Human–agent collaboration** — Interfaces that make the agent’s state and outputs visible and actionable.
 
 ---
 
 ## Summary
 
-**Overdue** is an autonomous academic co-pilot: a background AI that reminds you about assignments, auto-completes the tedious ones, and reviews your submissions against rubrics so you stop wasting time on busywork.
+**Overdue** is a **web agent** for academic busywork: it runs on the web to remind you about assignments, auto-complete the tedious ones, and review your submissions against rubrics so you stop wasting time.
