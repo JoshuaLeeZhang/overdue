@@ -75,6 +75,7 @@ npm install
 npm run build
 npm run server    # backend at http://localhost:3000
 npm run electron  # desktop app (requires server running)
+npm run dev       # desktop app
 npm run mcp       # MCP server (stdio; requires server running)
 ```
 
