@@ -164,16 +164,17 @@ async function main(): Promise<void> {
   server.registerTool(
     'scrape_assignment_context',
     {
-      description: 'Scrape one or more URLs (assignment page, rubric, linked readings) and return structured context (pages with title and text) for the assignment pipeline.',
+      description: 'Scrape one or more URLs (assignment page, rubric, linked readings) and return structured context. Set traverse=true to follow links from the first URL and scrape assignment subpages.',
       inputSchema: {
         urls: z.array(z.string().url()).describe('List of URLs to scrape'),
+        traverse: z.boolean().optional().describe('If true, follow links from the first URL to scrape assignment pages (default: false)'),
       },
     },
-    async ({ urls }: { urls: string[] }) => {
+    async ({ urls, traverse }: { urls: string[]; traverse?: boolean }) => {
       const res = await fetch(`${BACKEND_URL}/scrape`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls }),
+        body: JSON.stringify({ urls, traverse: !!traverse }),
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string };

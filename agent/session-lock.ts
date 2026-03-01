@@ -1,10 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Persistent profile dir; lock file lives inside it
-export const userDataDir = path.join(__dirname, '..', '.browser-profile');
+// Same profile path as login.ts and scraper.ts so login state is preserved
+export const userDataDir = process.env.BROWSER_PROFILE_PATH || path.join(process.cwd(), '.browser-profile');
 const lockPath = path.join(userDataDir, '.session.lock');
 
 function isProcessAlive(pid: number): boolean {

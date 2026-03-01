@@ -146,7 +146,7 @@ app.post('/run-agent', async (req, res) => {
 const projectRoot = path.join(__dirname, '..');
 const browserProfilePath = path.join(process.cwd(), '.browser-profile');
 
-function runScraper(urls: string[]): Promise<{ pages: { url: string; title: string; text: string }[] }> {
+function runScraper(urls: string[], traverse = false): Promise<{ pages: { url: string; title: string; text: string }[] }> {
   return new Promise((resolve, reject) => {
     const scraperPath = path.join(projectRoot, 'agent', 'scraper.js');
     const child = spawn('node', [scraperPath], {
@@ -154,7 +154,7 @@ function runScraper(urls: string[]): Promise<{ pages: { url: string; title: stri
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        AGENT_JOB: JSON.stringify({ mode: 'scrape', urls }),
+        AGENT_JOB: JSON.stringify({ mode: 'scrape', urls, traverse }),
         BROWSER_PROFILE_PATH: browserProfilePath,
       },
     });
@@ -196,22 +196,35 @@ function runScraper(urls: string[]): Promise<{ pages: { url: string; title: stri
 
 app.post('/scraper/login', (_req, res) => {
   const loginPath = path.join(projectRoot, 'agent', 'login.js');
-  spawn('node', [loginPath], {
-    cwd: projectRoot,
-    stdio: 'inherit',
-    env: { ...process.env, BROWSER_PROFILE_PATH: browserProfilePath },
-    detached: true,
-  }).unref();
+  const env = { ...process.env, BROWSER_PROFILE_PATH: browserProfilePath };
+  const cwd = process.cwd();
+  if (process.platform === 'darwin') {
+    const script = `cd "${cwd}" && BROWSER_PROFILE_PATH="${browserProfilePath}" node "${loginPath}"`;
+    spawn('osascript', ['-e', `tell application "Terminal" to do script ${JSON.stringify(script)}`], {
+      cwd,
+      stdio: 'ignore',
+      detached: true,
+    }).unref();
+  } else {
+    spawn('node', [loginPath], {
+      cwd,
+      stdio: 'ignore',
+      env,
+      detached: true,
+    }).unref();
+  }
   res.status(202).json({ ok: true, message: 'Login browser opened for learn.uwaterloo.ca. Log in, then close the window when done.' });
 });
 
 app.post('/scrape', async (req, res) => {
-  const urls = req.body && Array.isArray(req.body.urls) ? (req.body.urls as string[]) : [];
+  const body = (req.body || {}) as { urls?: string[]; traverse?: boolean };
+  const urls = Array.isArray(body.urls) ? body.urls : [];
+  const traverse = !!body.traverse;
   if (urls.length === 0) {
     return res.status(400).json({ error: 'urls array required' });
   }
   try {
-    const context = await runScraper(urls);
+    const context = await runScraper(urls, traverse);
     const store = await getContextStore();
     const contextId = await store.set(context);
     res.json({ contextId, context });

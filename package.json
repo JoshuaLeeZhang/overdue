@@ -14,7 +14,8 @@
     "predev:server": "npx convex dev --until-success",
     "dev:convex": "npx convex dev",
     "dev:server:run": "node dist/server/server.js",
-    "dev:server:simple": "tsc && node dist/server/server.js"
+    "dev:server:simple": "tsc && node dist/server/server.js",
+    "login": "node dist/agent/login.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",

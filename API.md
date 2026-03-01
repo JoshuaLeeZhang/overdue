@@ -102,9 +102,15 @@ Scrape one or more URLs and return structured context. Uses headless Playwright 
 
 **Request body:**
 
+| Field    | Type    | Required | Description                                                                 |
+|----------|---------|----------|-----------------------------------------------------------------------------|
+| urls     | string[]| yes      | URLs to scrape                                                              |
+| traverse | boolean | no       | If true, follow links from the first URL to scrape assignment subpages (up to 25) |
+
 ```json
 {
-  "urls": ["https://example.com", "https://example.org"]
+  "urls": ["https://learn.uwaterloo.ca/d2l/le/content/123456/view"],
+  "traverse": true
 }
 ```
 

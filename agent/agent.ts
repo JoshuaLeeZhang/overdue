@@ -31,6 +31,54 @@ export async function runAgent(options?: RunAgentOptions): Promise<RunAgentResul
       log('Navigating to URL');
       await page.goto(url);
 
+      let captured = false;
+      const capturePromise = new Promise<void>((resolve) => {
+        page.exposeFunction('__agentCapture', () => {
+          captured = true;
+          resolve();
+        });
+      });
+      const closedPromise = new Promise<void>((resolve) => {
+        context.on('close', () => resolve());
+      });
+
+      // Re-inject button on every navigation (e.g. after login redirect)
+      await page.addInitScript(() => {
+        const inject = () => {
+          if (document.getElementById('__agentCaptureBtn')) return;
+          const btn = document.createElement('button');
+          btn.id = '__agentCaptureBtn';
+          btn.textContent = 'Capture page';
+          btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+          btn.onclick = () => {
+            (window as unknown as { __agentCapture?: () => void }).__agentCapture?.();
+            btn.remove();
+          };
+          document.body.appendChild(btn);
+        };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', inject);
+        else inject();
+      });
+
+      await page.evaluate(() => {
+        const btn = document.createElement('button');
+        btn.textContent = 'Capture page';
+        btn.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:2147483647;padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+        btn.onclick = () => {
+          (window as unknown as { __agentCapture?: () => void }).__agentCapture?.();
+          btn.remove();
+        };
+        document.body.appendChild(btn);
+      });
+
+      log('Log in if needed, navigate to the page, then click "Capture page" when ready.');
+      await Promise.race([capturePromise, closedPromise]);
+
+      if (!captured) {
+        log('Browser closed without capture.');
+        return { title: '', text: '' };
+      }
+
       log('Extracting content');
       const title = await page.title();
       const text = await page.locator('body').innerText();
