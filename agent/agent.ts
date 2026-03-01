@@ -10,14 +10,7 @@ import { ChatOpenAI } from "browser-use/llm/openai";
 import { ChatAnthropic } from "browser-use/llm/anthropic";
 import { ChatGoogle } from "browser-use/llm/google";
 import { ChatBrowserUse } from "browser-use/llm/browser-use";
-import type { BaseChatModel, ChatInvokeOptions } from "browser-use";
-import {
-	UserMessage,
-	ContentPartTextParam,
-	ContentPartImageParam,
-} from "browser-use/llm/messages";
-import type { Message } from "browser-use/llm/messages";
-import type { ChatInvokeCompletion } from "browser-use/llm/views";
+import type { BaseChatModel } from "browser-use";
 import {
 	userDataDir,
 	acquireLock,
@@ -56,40 +49,6 @@ export interface FillFormResult {
 }
 
 const defaultLog = (msg: string) => console.log(msg);
-
-/** Wraps a ChatOpenAI instance to strip image_url parts (for models that reject them) */
-class ImageStrippingLLM implements BaseChatModel {
-	model: string;
-	private inner: BaseChatModel;
-
-	constructor(inner: BaseChatModel) {
-		this.inner = inner;
-		this.model = inner.model;
-	}
-
-	get provider() { return this.inner.provider; }
-	get name() { return this.inner.name; }
-	get model_name() { return this.inner.model_name; }
-
-	private stripImages(messages: Message[]): Message[] {
-		return messages.map((msg) => {
-			if (msg instanceof UserMessage && Array.isArray(msg.content)) {
-				const filtered = msg.content.filter(
-					(part) => !(part instanceof ContentPartImageParam),
-				);
-				if (filtered.length === 0) {
-					filtered.push(new ContentPartTextParam("[screenshot omitted]"));
-				}
-				return new UserMessage(filtered, msg.name);
-			}
-			return msg;
-		});
-	}
-
-	ainvoke(messages: Message[], output_format?: any, options?: ChatInvokeOptions): Promise<ChatInvokeCompletion<any>> {
-		return this.inner.ainvoke(this.stripImages(messages), output_format, options);
-	}
-}
 
 type LLMProvider =
 	| "browser-use"
@@ -130,17 +89,15 @@ function createLLM(options?: {
 	const tryBaseten = () => {
 		if (!process.env.BASETEN_API_KEY) return null;
 		const m =
-			process.env.BASETEN_MODEL || "zai-org/GLM-5";
+			process.env.BASETEN_MODEL || "deepseek-ai/DeepSeek-V3.1";
 		const baseURL =
 			process.env.BASETEN_API_URL || "https://inference.baseten.co/v1";
 		log(`Using Baseten (${m})`);
-		return new ImageStrippingLLM(
-			new ChatOpenAI({
-				model: m,
-				apiKey: process.env.BASETEN_API_KEY,
-				baseURL,
-			}),
-		);
+		return new ChatOpenAI({
+			model: m,
+			apiKey: process.env.BASETEN_API_KEY,
+			baseURL,
+		});
 	};
 	const tryBrowserUse = () => {
 		if (!process.env.BROWSER_USE_API_KEY) return null;
@@ -225,17 +182,15 @@ function createFallbackLLM(
 		}
 		if (p === "baseten" && process.env.BASETEN_API_KEY) {
 			const m =
-				process.env.BASETEN_MODEL || "zai-org/GLM-5";
+				process.env.BASETEN_MODEL || "deepseek-ai/DeepSeek-V3";
 			const baseURL =
 				process.env.BASETEN_API_URL || "https://inference.baseten.co/v1";
 			log(`Fallback LLM: Baseten (will use if primary fails)`);
-			return new ImageStrippingLLM(
-				new ChatOpenAI({
-					model: m,
-					apiKey: process.env.BASETEN_API_KEY,
-					baseURL,
-				}),
-			);
+			return new ChatOpenAI({
+				model: m,
+				apiKey: process.env.BASETEN_API_KEY,
+				baseURL,
+			});
 		}
 		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY) {
 			log(`Fallback LLM: Browser Use (will use if primary fails)`);
@@ -277,46 +232,108 @@ export async function runAgent(
 	const log = options?.log ?? defaultLog;
 	const url = options?.url ?? getAgentUrl();
 	const profileDir = options?.userDataDir ?? userDataDir;
+	const origin = url.replace(/\/$/, "");
+
 	const task =
 		options?.task ??
-		`Go to ${url}/d2l/home.
+		`You are a web scraper. Your job is to collect ALL courses, assignments, and quizzes from D2L/LEARN.
 
-AUTHENTICATION:
-If you see a login page, do NOT fill in credentials. A human will log in for you. Call wait(seconds=15) and check the URL. Repeat until the URL contains "/d2l/home".
+Go to ${origin}/d2l/home
 
-IMPORTANT: D2L uses shadow DOM web components. The browser click() action DOES NOT WORK. You MUST use evaluate() for ALL clicks. Never use click() or click_element_by_index().
+═══════════════════════════════════════
+PHASE 0 — AUTHENTICATION
+═══════════════════════════════════════
+If you see a login page (ADFS, SSO, Duo, CAS, or any sign-in form):
+  - Do NOT type any credentials. A human will log in for you.
+  - Call wait(seconds=20), then check the URL.
+  - Repeat until the URL contains "/d2l/home" (meaning you are past login).
 
-SCRAPING PLAN:
+═══════════════════════════════════════
+PHASE 1 — DISCOVER ALL COURSES
+═══════════════════════════════════════
+Once on the D2L homepage, you need to find every course listed.
 
-Step 1: On the homepage, find all course links by searching the page HTML. Run:
-  evaluate('(function(){var r=[];function walk(n){if(n.shadowRoot)walk(n.shadowRoot);n.querySelectorAll("a").forEach(function(a){if(/\\/d2l\\/home\\/\\d+/.test(a.href)){var m=a.href.match(/\\/d2l\\/home\\/(\\d+)/);if(m)r.push({name:a.textContent.trim(),id:m[1],href:a.href})}});n.querySelectorAll("*").forEach(function(c){if(c.shadowRoot)walk(c.shadowRoot)})}walk(document);return JSON.stringify(r)})()')
-  This walks through shadow DOM to find all course links with their full IDs.
+1. Look for a button or link that says "View All Courses" or shows more courses.
+   If you see one, click it and wait 2 seconds.
+2. Scroll down to make sure all courses are visible.
+3. Run this evaluate() to extract every course ID and name from the page:
 
-Step 2: If Step 1 returns [], try clicking the course selector button:
-  evaluate('(function(){var btns=document.querySelectorAll("d2l-navigation-button,d2l-button-subtle,button");for(var i=0;i<btns.length;i++){var t=btns[i].textContent||btns[i].getAttribute("text")||"";if(/course/i.test(t)){btns[i].click();return "clicked: "+t}}return "not found"})()')
-  Then wait(seconds=2) and run Step 1 again.
+evaluate("var courses=[],seen=new Set();function walk(el){if(el.shadowRoot){el.shadowRoot.querySelectorAll('a[href*=\\"/d2l/home/\\"]').forEach(function(a){var m=a.href.match(/\\\\/d2l\\\\/home\\\\/(\\\\d{4,})/);if(m&&!seen.has(m[1])){seen.add(m[1]);courses.push({id:m[1],name:(a.textContent||'').trim().substring(0,100)})}});el.shadowRoot.querySelectorAll('*').forEach(walk)}};document.querySelectorAll('a[href*=\\"/d2l/home/\\"]').forEach(function(a){var m=a.href.match(/\\\\/d2l\\\\/home\\\\/(\\\\d{4,})/);if(m&&!seen.has(m[1])){seen.add(m[1]);courses.push({id:m[1],name:(a.textContent||'').trim().substring(0,100)})}});document.querySelectorAll('*').forEach(walk);JSON.stringify(courses)")
 
-Step 3: For EACH course from Step 1, navigate to it and scrape:
-  a) go_to_url(THE_COURSE_HREF) — use the exact href from Step 1, do NOT type it yourself.
-  b) Find and click Dropbox link: evaluate('(function(){var a=document.querySelector("a[href*=dropbox]");if(a){a.click();return "clicked"}var r=document;function walk(n){if(n.shadowRoot){var s=n.shadowRoot.querySelector("a[href*=dropbox]");if(s){s.click();return true}}for(var c of n.querySelectorAll("*")){if(c.shadowRoot&&walk(c))return true}return false}walk(r);return "done"})()')
-  c) Use extract_structured_data to get assignment names, due dates, status, scores.
-  d) Go back: go_to_url(THE_COURSE_HREF)
-  e) Find and click Quizzes link: evaluate('(function(){var a=document.querySelector("a[href*=quizzing]");if(a){a.click();return "clicked"}var r=document;function walk(n){if(n.shadowRoot){var s=n.shadowRoot.querySelector("a[href*=quizzing]");if(s){s.click();return true}}for(var c of n.querySelectorAll("*")){if(c.shadowRoot&&walk(c))return true}return false}walk(r);return "done"})()')
-  f) Use extract_structured_data to get quiz names, due dates, status, scores.
-  g) go_to_url("${url}/d2l/home") to return home before the next course.
+This returns a JSON array of {id, name} objects. Save this list — these are ALL the courses you must visit.
 
-Step 4: After all courses, call done() with the JSON.
+If it returns an empty array, scroll down more, wait 2 seconds, and try again. If still empty after 2 attempts, call done("No courses found").
 
-RULES:
-- NEVER use click() or click_element_by_index(). ALWAYS use evaluate() for clicking.
-- Use go_to_url() ONLY with URLs copied from the evaluate() results.
-- If a page errors or has no data, skip it.
-- If stuck for 2 actions, move on.
+═══════════════════════════════════════
+PHASE 2 — SCRAPE EACH COURSE
+═══════════════════════════════════════
+You MUST visit every single course from the list. For each course:
 
-OUTPUT FORMAT (strict JSON):
-{"courses":[{"name":"...","id":"...","assignments":[{"title":"...","dueDate":"...","status":"...","score":"..."}],"quizzes":[{"title":"...","dueDate":"...","status":"...","score":"..."}]}]}
+STEP A — Go to the course homepage:
+  go_to_url("${origin}/d2l/home/{courseId}")
+  Wait for the page to load.
 
-Call done() with this JSON.`;
+STEP B — Get the course name:
+  Read the page title or header to get the full course name.
+
+STEP C — Navigate to Assignments (Dropbox):
+  Look at the course navigation bar near the top of the page. You are looking for
+  a link or dropdown menu labeled any of these:
+    "Submit", "Assessments", "Activities", "Assignments", "Dropbox"
+  
+  - If you see a dropdown (e.g. "Assessments" or "Activities"), click it to expand,
+    then click "Assignments" or "Dropbox" from the submenu.
+  - If you see a direct link labeled "Assignments" or "Dropbox", click it.
+  - If you cannot find any such link in the navbar, go directly to:
+    go_to_url("${origin}/d2l/lms/dropbox/user/folders_list.d2l?ou={courseId}")
+
+STEP D — Extract assignments from the page:
+  Once on the assignments/dropbox page, run:
+
+  evaluate("var items=[];document.querySelectorAll('tr').forEach(function(row){var cells=row.querySelectorAll('td');if(cells.length>=1){var title=(cells[0]&&cells[0].innerText||'').trim();if(title&&title.length>1&&!/^\\\\s*$/.test(title)){items.push({title:title.substring(0,200),dueDate:(cells[1]&&cells[1].innerText||'').trim(),status:(cells[2]&&cells[2].innerText||'').trim(),score:(cells[3]&&cells[3].innerText||'').trim()})}}});JSON.stringify(items)")
+
+  If the result is empty "[]", look at the visible page content. If you can see assignment
+  names listed on the page (in cards, lists, or any format), read them and note them down.
+
+STEP E — Navigate to Quizzes:
+  Go back to the course: go_to_url("${origin}/d2l/home/{courseId}")
+  Look at the course navbar again for:
+    "Quizzes", "Tests", or under the same "Assessments"/"Submit" dropdown
+  
+  - Click the appropriate link or dropdown item to reach the Quizzes page.
+  - If you cannot find a quizzes link, go directly to:
+    go_to_url("${origin}/d2l/lms/quizzing/user/quizzes_list.d2l?ou={courseId}")
+
+STEP F — Extract quizzes from the page:
+  Once on the quizzes page, run:
+
+  evaluate("var items=[];document.querySelectorAll('tr').forEach(function(row){var cells=row.querySelectorAll('td');if(cells.length>=1){var title=(cells[0]&&cells[0].innerText||'').trim();if(title&&title.length>1&&!/^\\\\s*$/.test(title)){items.push({title:title.substring(0,200),dueDate:(cells[1]&&cells[1].innerText||'').trim(),status:(cells[2]&&cells[2].innerText||'').trim(),score:(cells[3]&&cells[3].innerText||'').trim()})}}});JSON.stringify(items)")
+
+  Same as before — if empty, check the visible page for quiz names.
+
+STEP G — Move to the next course. Repeat Steps A-F for ALL courses.
+
+═══════════════════════════════════════
+PHASE 3 — RETURN RESULTS
+═══════════════════════════════════════
+After visiting every course, compile ALL your collected data into this JSON format
+and call done() with it:
+
+{"courses":[{"id":"123456","name":"CS 101 - Intro to CS","assignments":[{"title":"Assignment 1","dueDate":"Jan 15","status":"Submitted","score":"85/100"}],"quizzes":[{"title":"Quiz 1","dueDate":"Jan 20","status":"Completed","score":"90%"}]}]}
+
+Include ALL courses, even those with empty assignments/quizzes arrays.
+
+═══════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════
+1. Visit EVERY course. Do NOT stop after one or two courses.
+2. NEVER fabricate or guess a URL. Only use the exact patterns shown above with real course IDs.
+3. If a page returns 403 or an error, skip it and move to the next course.
+4. If you cannot find assignments or quizzes for a course, use empty arrays [] and move on.
+5. NEVER type credentials or interact with login forms.
+6. Always replace {courseId} with the actual numeric course ID from your list.
+7. Do NOT call done() until you have visited ALL courses from Phase 1.
+8. Be thorough — even if some courses seem empty, still check them all.`;
 
 	await acquireLock(profileDir);
 	try {
@@ -343,8 +360,8 @@ Call done() with this JSON.`;
 			directly_open_url: true,
 			use_vision: true,
 			use_judge: false,
-			max_failures: 3,
-			max_actions_per_step: 5,
+			max_failures: 5,
+			max_actions_per_step: 3,
 			register_new_step_callback: (summary, _output, step) => {
 				log(
 					`Step ${step}: ${summary.url || "loading"} - ${summary.title || ""}`,
@@ -353,7 +370,7 @@ Call done() with this JSON.`;
 		});
 
 		try {
-			const history = await agent.run(60);
+			const history = await agent.run(150);
 			const text = history.final_result() ?? "";
 			const lastState = history.history[history.history.length - 1]?.state;
 			const title = lastState?.title ?? "";
