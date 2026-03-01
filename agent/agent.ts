@@ -25,6 +25,7 @@ import {
 	clearStaleChromiumLocks,
 } from "./session-lock.js";
 import { getAgentUrl } from "../lib/agent-url.js";
+import { getAssignmentsStore } from "../server/assignments-store.js";
 
 export interface RunAgentOptions {
 	log?: (msg: string) => void;
@@ -158,15 +159,15 @@ function createLLM(options?: {
 				prefer,
 				...(
 					[
-						"browser-use",
+						"baseten",
 						"openai",
 						"anthropic",
 						"google",
-						"baseten",
+						"browser-use",
 					] as LLMProvider[]
 				).filter((p) => p !== prefer),
 			]
-		: ["browser-use", "openai", "anthropic", "google", "baseten"];
+		: ["baseten", "openai", "anthropic", "google", "browser-use"];
 
 	for (const p of order) {
 		const llm =
@@ -252,22 +253,22 @@ function createFallbackLLM(
 
 function getPrimaryProvider(): LLMProvider {
 	const order: LLMProvider[] = [
-		"browser-use",
+		"baseten",
 		"openai",
 		"anthropic",
 		"google",
-		"baseten",
+		"browser-use",
 	];
 	for (const p of order) {
-		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY)
-			return "browser-use";
+		if (p === "baseten" && process.env.BASETEN_API_KEY) return "baseten";
 		if (p === "openai" && process.env.OPENAI_API_KEY) return "openai";
 		if (p === "anthropic" && process.env.ANTHROPIC_API_KEY)
 			return "anthropic";
 		if (p === "google" && process.env.GOOGLE_API_KEY) return "google";
-		if (p === "baseten" && process.env.BASETEN_API_KEY) return "baseten";
+		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY)
+			return "browser-use";
 	}
-	return "browser-use";
+	return "baseten";
 }
 
 export async function runAgent(
@@ -278,15 +279,44 @@ export async function runAgent(
 	const profileDir = options?.userDataDir ?? userDataDir;
 	const task =
 		options?.task ??
-		`Go to ${url}. If login is required, log in first (the browser profile has saved credentials).
+		`Go to ${url}/d2l/home.
 
-Once logged in, do the following:
-1. Go to the homepage and find all courses listed under "Courses and Communities". Click on the current semester tab (e.g. Winter 2026) to see enrolled courses.
-2. For EACH course, click into it and navigate to the Assignments or Dropbox section.
-3. Extract every assignment: name, due date, status (submitted/not submitted), and any description or instructions.
-4. After visiting all courses, output a complete summary of ALL assignments across all courses, organized by course name, including due dates and submission status.
+AUTHENTICATION:
+If you see a login page, do NOT fill in credentials. A human will log in for you. Call wait(seconds=15) and check the URL. Repeat until the URL contains "/d2l/home".
 
-Be thorough - visit every course and every assignment page. Do not stop after the first course.`;
+IMPORTANT: D2L uses shadow DOM web components. The browser click() action DOES NOT WORK. You MUST use evaluate() for ALL clicks. Never use click() or click_element_by_index().
+
+SCRAPING PLAN:
+
+Step 1: On the homepage, find all course links by searching the page HTML. Run:
+  evaluate('(function(){var r=[];function walk(n){if(n.shadowRoot)walk(n.shadowRoot);n.querySelectorAll("a").forEach(function(a){if(/\\/d2l\\/home\\/\\d+/.test(a.href)){var m=a.href.match(/\\/d2l\\/home\\/(\\d+)/);if(m)r.push({name:a.textContent.trim(),id:m[1],href:a.href})}});n.querySelectorAll("*").forEach(function(c){if(c.shadowRoot)walk(c.shadowRoot)})}walk(document);return JSON.stringify(r)})()')
+  This walks through shadow DOM to find all course links with their full IDs.
+
+Step 2: If Step 1 returns [], try clicking the course selector button:
+  evaluate('(function(){var btns=document.querySelectorAll("d2l-navigation-button,d2l-button-subtle,button");for(var i=0;i<btns.length;i++){var t=btns[i].textContent||btns[i].getAttribute("text")||"";if(/course/i.test(t)){btns[i].click();return "clicked: "+t}}return "not found"})()')
+  Then wait(seconds=2) and run Step 1 again.
+
+Step 3: For EACH course from Step 1, navigate to it and scrape:
+  a) go_to_url(THE_COURSE_HREF) — use the exact href from Step 1, do NOT type it yourself.
+  b) Find and click Dropbox link: evaluate('(function(){var a=document.querySelector("a[href*=dropbox]");if(a){a.click();return "clicked"}var r=document;function walk(n){if(n.shadowRoot){var s=n.shadowRoot.querySelector("a[href*=dropbox]");if(s){s.click();return true}}for(var c of n.querySelectorAll("*")){if(c.shadowRoot&&walk(c))return true}return false}walk(r);return "done"})()')
+  c) Use extract_structured_data to get assignment names, due dates, status, scores.
+  d) Go back: go_to_url(THE_COURSE_HREF)
+  e) Find and click Quizzes link: evaluate('(function(){var a=document.querySelector("a[href*=quizzing]");if(a){a.click();return "clicked"}var r=document;function walk(n){if(n.shadowRoot){var s=n.shadowRoot.querySelector("a[href*=quizzing]");if(s){s.click();return true}}for(var c of n.querySelectorAll("*")){if(c.shadowRoot&&walk(c))return true}return false}walk(r);return "done"})()')
+  f) Use extract_structured_data to get quiz names, due dates, status, scores.
+  g) go_to_url("${url}/d2l/home") to return home before the next course.
+
+Step 4: After all courses, call done() with the JSON.
+
+RULES:
+- NEVER use click() or click_element_by_index(). ALWAYS use evaluate() for clicking.
+- Use go_to_url() ONLY with URLs copied from the evaluate() results.
+- If a page errors or has no data, skip it.
+- If stuck for 2 actions, move on.
+
+OUTPUT FORMAT (strict JSON):
+{"courses":[{"name":"...","id":"...","assignments":[{"title":"...","dueDate":"...","status":"...","score":"..."}],"quizzes":[{"title":"...","dueDate":"...","status":"...","score":"..."}]}]}
+
+Call done() with this JSON.`;
 
 	await acquireLock(profileDir);
 	try {
@@ -313,6 +343,8 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 			directly_open_url: true,
 			use_vision: true,
 			use_judge: false,
+			max_failures: 3,
+			max_actions_per_step: 5,
 			register_new_step_callback: (summary, _output, step) => {
 				log(
 					`Step ${step}: ${summary.url || "loading"} - ${summary.title || ""}`,
@@ -321,10 +353,12 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 		});
 
 		try {
-			const history = await agent.run(50);
+			const history = await agent.run(60);
 			const text = history.final_result() ?? "";
 			const lastState = history.history[history.history.length - 1]?.state;
 			const title = lastState?.title ?? "";
+
+			await storeAgentResults(text, log);
 
 			log("Done");
 			return { title, text };
@@ -333,6 +367,90 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 		}
 	} finally {
 		await releaseLock(profileDir);
+	}
+}
+
+interface AgentAssignmentItem {
+	title: string;
+	dueDate?: string;
+	status?: string;
+	score?: string;
+	description?: string;
+	type?: string;
+}
+
+interface AgentCourseOutput {
+	courses?: {
+		name: string;
+		id: string;
+		assignments?: AgentAssignmentItem[];
+		quizzes?: AgentAssignmentItem[];
+	}[];
+}
+
+async function storeAgentResults(
+	text: string,
+	log: (msg: string) => void,
+): Promise<void> {
+	if (!text || text.includes("No next action")) return;
+
+	let parsed: AgentCourseOutput;
+	try {
+		const match = text.match(/\{[\s\S]*\}/);
+		if (!match) return;
+		parsed = JSON.parse(match[0]) as AgentCourseOutput;
+	} catch {
+		log("Could not parse agent output as JSON for storage");
+		return;
+	}
+
+	if (!parsed.courses?.length) return;
+
+	try {
+		const store = await getAssignmentsStore();
+		let totalItems = 0;
+
+		const storeItem = async (
+			course: { id: string; name: string },
+			a: AgentAssignmentItem,
+			type: string,
+		) => {
+			await store.upsertAssignment({
+				courseId: course.id,
+				courseName: course.name,
+				title: `${type === "quiz" ? "[Quiz] " : ""}${a.title}`,
+				dueDate: a.dueDate,
+				status: a.status,
+				description: a.score
+					? `Score: ${a.score}${a.description ? ` — ${a.description}` : ""}`
+					: a.description,
+			});
+			totalItems++;
+		};
+
+		for (const course of parsed.courses) {
+			await store.upsertCourse({
+				courseId: course.id,
+				name: course.name,
+			});
+
+			if (course.assignments) {
+				for (const a of course.assignments) {
+					await storeItem(course, a, a.type ?? "dropbox");
+				}
+			}
+			if (course.quizzes) {
+				for (const q of course.quizzes) {
+					await storeItem(course, q, "quiz");
+				}
+			}
+		}
+
+		log(
+			`Stored ${parsed.courses.length} courses and ${totalItems} items (assignments + quizzes) in database`,
+		);
+	} catch (err) {
+		log(`Failed to store results: ${(err as Error).message}`);
 	}
 }
 

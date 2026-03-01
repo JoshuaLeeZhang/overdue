@@ -13,6 +13,7 @@ import { generateDraft } from "./pipeline.js";
 import { runDedalusAgent } from "./dedalus-runner.js";
 import { runAgent } from "../agent/agent.js";
 import { getContextStore } from "./context-store.js";
+import { getAssignmentsStore } from "./assignments-store.js";
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -307,6 +308,27 @@ app.post("/pipeline/draft", async (req, res) => {
 			styleProfile ?? null,
 		);
 		res.json({ draft });
+	} catch (err) {
+		res.status(500).json({ error: (err as Error).message });
+	}
+});
+
+app.get("/api/assignments", async (req, res) => {
+	try {
+		const store = await getAssignmentsStore();
+		const courseId = req.query.courseId as string | undefined;
+		const assignments = await store.listAssignments(courseId);
+		res.json({ assignments });
+	} catch (err) {
+		res.status(500).json({ error: (err as Error).message });
+	}
+});
+
+app.get("/api/courses", async (_req, res) => {
+	try {
+		const store = await getAssignmentsStore();
+		const courses = await store.listCourses();
+		res.json({ courses });
 	} catch (err) {
 		res.status(500).json({ error: (err as Error).message });
 	}
