@@ -42,7 +42,10 @@
 </head>
 <body>
   <h1>Desktop Agent</h1>
-  <button id="run">Run agent</button>
+  <p>
+    <input type="text" id="agent-input" placeholder="e.g. Go to example.com and extract the page (optional)" style="width: 100%; max-width: 500px; padding: 0.4rem; margin-right: 0.5rem;" />
+    <button id="run">Run agent</button>
+  </p>
   <div id="logs"></div>
   <div id="result">
     <h3>Extracted content</h3>
@@ -85,9 +88,23 @@
     document.getElementById('run').onclick = () => {
       logsEl.textContent = '';
       resultEl.classList.remove('visible');
-      fetch('/run-agent', { method: 'POST' })
+      const input = document.getElementById('agent-input').value.trim();
+      const body = input ? { input } : {};
+      fetch('/run-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
         .then((r) => r.json())
-        .then(() => { logsEl.textContent += 'Agent started.\n'; })
+        .then((data) => {
+          if (data.error) logsEl.textContent += 'Error: ' + data.error + '\n';
+          else if (data.finalOutput !== undefined) {
+            resultTitle.textContent = 'Agent';
+            resultText.textContent = data.finalOutput;
+            resultEl.classList.add('visible');
+            logsEl.textContent += 'Done.\n';
+          } else logsEl.textContent += 'Agent started.\n';
+        })
         .catch((err) => { logsEl.textContent += 'Error: ' + err.message + '\n'; });
     };
   </script>

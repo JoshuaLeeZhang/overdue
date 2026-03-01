@@ -34,4 +34,6 @@ AI clients (e.g. Cursor, Claude Desktop) can trigger the agent via the MCP serve
 
 **MCP tools:** `run_browser_agent`, `scrape_assignment_context`, `gdrive_list_files`, `gdrive_read_document`, `gdrive_get_writing_style`, `o365_list_files`, `o365_read_document`, `o365_get_writing_style`, `generate_draft`, `fill_form`, `do_assignment`. Google Drive requires `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Office 365 is a stub until `MS_*` env vars are wired.
 
-**Backend API:** `POST /run-agent` (body: `{ url? }` or `{ job: { mode: "fill_form", url, values } }`), `POST /scrape` (body: `{ urls }`), `GET /context/:id`, `POST /pipeline/draft` (body: `{ assignmentSpec, context?, contextId?, styleProfile? }`).
+**Backend API:** See [API.md](API.md) for full documentation. Single entry point: `POST /run-agent` (uses Dedalus when `DEDALUS_API_KEY` is set, else Playwright).
+
+**Dedalus:** Set `DEDALUS_API_KEY` (from [dashboard](https://www.dedaluslabs.ai/dashboard/api-keys)) to use Dedalus + [browser-use-mcp](https://www.dedaluslabs.ai/webagents) for browser automation. Optional: `DEDALUS_MODEL`.

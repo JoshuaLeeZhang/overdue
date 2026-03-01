@@ -1,10 +1,10 @@
 /**
  * Assignment pipeline: combines scraped context + writing style to generate draft or form-fill plan.
- * generateDraft(assignmentSpec, context, styleProfile) -> draft text
- * prepareFormFill(assignmentSpec, context) -> { url, values } for the browser agent (sketch)
+ * generateDraft uses Dedalus LLM when DEDALUS_API_KEY is set; otherwise returns a template.
  */
 import { getWritingStyleProfile } from '../lib/writing-style';
 import type { WritingStyleProfile } from '../lib/writing-style';
+import { runDedalusAgent } from './dedalus-runner';
 
 export interface AssignmentSpec {
   instructions?: string;
@@ -23,27 +23,58 @@ export interface ScrapedContext {
   files?: { name: string; text: string }[];
 }
 
+function buildDraftPrompt(
+  instructions: string,
+  contextBlob: string,
+  styleSummary: string,
+  excerpt: string
+): string {
+  return [
+    'You are writing an assignment draft. Follow these instructions and match the author\'s writing style.',
+    '',
+    '## Instructions',
+    instructions,
+    '',
+    '## Writing style to match',
+    styleSummary,
+    ...(excerpt ? ['', 'Sample excerpt from the author:', excerpt] : []),
+    '',
+    '## Context from assignment / linked pages',
+    contextBlob || '(No scraped context.)',
+    '',
+    '---',
+    'Write the draft now. Output only the draft content, no meta-commentary.',
+  ].join('\n');
+}
+
 /**
  * Generate a draft from assignment spec, scraped context, and optional style profile.
- * Without an LLM this returns a template that weaves in context and style summary.
- * Plug in an LLM (e.g. OpenAI) later by replacing the body and using assignmentSpec.instructions + context.pages + style.summary.
+ * When DEDALUS_API_KEY is set, uses Dedalus LLM. Otherwise returns a template.
  */
-export function generateDraft(
+export async function generateDraft(
   assignmentSpec: AssignmentSpec,
   context: ScrapedContext,
   styleProfile: WritingStyleProfile | null
-): { draft: string } {
+): Promise<{ draft: string }> {
   const instructions = assignmentSpec.instructions || 'No instructions provided.';
   const pages = (context && context.pages) || [];
   const styleSummary = (styleProfile && styleProfile.summary) || 'No writing style provided.';
-  const excerpt = (styleProfile && styleProfile.excerpts && styleProfile.excerpts[0]) ? styleProfile.excerpts[0].slice(0, 200) : '';
+  const excerpt = (styleProfile && styleProfile.excerpts && styleProfile.excerpts[0])
+    ? styleProfile.excerpts[0].slice(0, 200)
+    : '';
 
   const contextBlob = pages
     .map((p) => `[${p.url}]\n${p.title || ''}\n${(p.text || '').slice(0, 3000)}`)
     .join('\n\n---\n\n');
 
+  if (process.env.DEDALUS_API_KEY) {
+    const prompt = buildDraftPrompt(instructions, contextBlob, styleSummary, excerpt);
+    const result = await runDedalusAgent({ input: prompt, mcpServers: [] });
+    return { draft: result.finalOutput };
+  }
+
   const draft = [
-    '# Draft (template – replace with LLM generation)',
+    '# Draft (template – set DEDALUS_API_KEY for LLM generation)',
     '',
     '## Instructions',
     instructions,
@@ -54,9 +85,6 @@ export function generateDraft(
     '',
     '## Context from assignment / links',
     contextBlob || '(No scraped context.)',
-    '',
-    '---',
-    "Generate your response above using the instructions and context, in the author's style.",
   ].join('\n');
 
   return { draft };
