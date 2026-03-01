@@ -1,3 +1,0 @@
-browser-use
-python-dotenv
-langchain-openai
