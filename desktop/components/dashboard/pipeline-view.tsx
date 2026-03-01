@@ -3,74 +3,7 @@
 import { Bot, CheckCircle2, Clock, Loader2, AlertTriangle } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { cn } from "@/lib/utils";
-
-type PipelineTask = {
-	id: string;
-	title: string;
-	course: string;
-	status: "queued" | "processing" | "completed" | "urgent";
-	dueDate: string;
-	type: string;
-};
-
-const tasks: PipelineTask[] = [
-	{
-		id: "1",
-		title: "Discussion Board Post #8",
-		course: "PSY 101",
-		status: "processing",
-		dueDate: "Today 11:59 PM",
-		type: "Auto-complete",
-	},
-	{
-		id: "2",
-		title: "Lab Report Review",
-		course: "CHEM 201",
-		status: "processing",
-		dueDate: "Tomorrow 5:00 PM",
-		type: "Rubric Review",
-	},
-	{
-		id: "3",
-		title: "Reading Quiz Ch. 12",
-		course: "HIST 150",
-		status: "queued",
-		dueDate: "Mar 2, 11:59 PM",
-		type: "Auto-complete",
-	},
-	{
-		id: "4",
-		title: "Peer Review Draft",
-		course: "ENG 202",
-		status: "queued",
-		dueDate: "Mar 3, 9:00 AM",
-		type: "Rubric Review",
-	},
-	{
-		id: "5",
-		title: "Homework Set #7",
-		course: "MATH 260",
-		status: "urgent",
-		dueDate: "Today 6:00 PM",
-		type: "Auto-complete",
-	},
-	{
-		id: "6",
-		title: "Weekly Reflection Journal",
-		course: "PSY 101",
-		status: "completed",
-		dueDate: "Submitted",
-		type: "Auto-complete",
-	},
-	{
-		id: "7",
-		title: "Module 5 Quiz",
-		course: "CS 110",
-		status: "completed",
-		dueDate: "Submitted",
-		type: "Auto-complete",
-	},
-];
+import { type PipelineTask, tasks } from "@/lib/tasks-data";
 
 const statusConfig = {
 	queued: {
@@ -157,74 +90,107 @@ function PipelineItem({ task }: { task: PipelineTask }) {
 	);
 }
 
-export function PipelineView() {
-	const processingTasks = tasks.filter(
+function matchesQuery(task: PipelineTask, q: string) {
+	if (!q) return true;
+	const lower = q.toLowerCase();
+	return (
+		task.title.toLowerCase().includes(lower) ||
+		task.course.toLowerCase().includes(lower) ||
+		task.type.toLowerCase().includes(lower) ||
+		task.status.toLowerCase().includes(lower)
+	);
+}
+
+interface PipelineViewProps {
+	searchQuery?: string;
+}
+
+export function PipelineView({ searchQuery = "" }: PipelineViewProps) {
+	const filtered = tasks.filter((t) => matchesQuery(t, searchQuery));
+
+	const processingTasks = filtered.filter(
 		(t) => t.status === "processing" || t.status === "urgent",
 	);
-	const queuedTasks = tasks.filter((t) => t.status === "queued");
-	const completedTasks = tasks.filter((t) => t.status === "completed");
+	const queuedTasks = filtered.filter((t) => t.status === "queued");
+	const completedTasks = filtered.filter((t) => t.status === "completed");
+
+	const noResults = searchQuery && filtered.length === 0;
 
 	return (
 		<div className="flex flex-col gap-6">
-			{/* Active / Urgent */}
-			<div className="flex flex-col gap-2">
-				<div className="flex items-center gap-2 px-1">
-					<Bot className="size-4 text-primary" />
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Active
-					</h3>
-					<Badge
-						variant="outline"
-						className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5"
-					>
-						{processingTasks.length}
-					</Badge>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					{processingTasks.map((task) => (
-						<PipelineItem key={task.id} task={task} />
-					))}
-				</div>
-			</div>
+			{noResults ? (
+				<p className="py-6 text-center text-sm text-muted-foreground">
+					No tasks match &ldquo;{searchQuery}&rdquo;
+				</p>
+			) : (
+				<>
+					{/* Active / Urgent */}
+					{processingTasks.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-2 px-1">
+								<Bot className="size-4 text-primary" />
+								<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+									Active
+								</h3>
+								<Badge
+									variant="outline"
+									className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5"
+								>
+									{processingTasks.length}
+								</Badge>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								{processingTasks.map((task) => (
+									<PipelineItem key={task.id} task={task} />
+								))}
+							</div>
+						</div>
+					)}
 
-			{/* Queued */}
-			<div className="flex flex-col gap-2">
-				<div className="flex items-center gap-2 px-1">
-					<Clock className="size-4 text-muted-foreground" />
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Queued
-					</h3>
-					<Badge variant="outline" className="text-[10px] px-1.5">
-						{queuedTasks.length}
-					</Badge>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					{queuedTasks.map((task) => (
-						<PipelineItem key={task.id} task={task} />
-					))}
-				</div>
-			</div>
+					{/* Queued */}
+					{queuedTasks.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-2 px-1">
+								<Clock className="size-4 text-muted-foreground" />
+								<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+									Queued
+								</h3>
+								<Badge variant="outline" className="text-[10px] px-1.5">
+									{queuedTasks.length}
+								</Badge>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								{queuedTasks.map((task) => (
+									<PipelineItem key={task.id} task={task} />
+								))}
+							</div>
+						</div>
+					)}
 
-			{/* Completed */}
-			<div className="flex flex-col gap-2">
-				<div className="flex items-center gap-2 px-1">
-					<CheckCircle2 className="size-4 text-primary/70" />
-					<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-						Completed
-					</h3>
-					<Badge
-						variant="outline"
-						className="bg-primary/10 text-primary/70 border-primary/20 text-[10px] px-1.5"
-					>
-						{completedTasks.length}
-					</Badge>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					{completedTasks.map((task) => (
-						<PipelineItem key={task.id} task={task} />
-					))}
-				</div>
-			</div>
+					{/* Completed */}
+					{completedTasks.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-2 px-1">
+								<CheckCircle2 className="size-4 text-primary/70" />
+								<h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+									Completed
+								</h3>
+								<Badge
+									variant="outline"
+									className="bg-primary/10 text-primary/70 border-primary/20 text-[10px] px-1.5"
+								>
+									{completedTasks.length}
+								</Badge>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								{completedTasks.map((task) => (
+									<PipelineItem key={task.id} task={task} />
+								))}
+							</div>
+						</div>
+					)}
+				</>
+			)}
 		</div>
 	);
 }

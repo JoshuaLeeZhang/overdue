@@ -24,6 +24,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarSeparator,
+	SidebarTrigger,
 } from "../ui/sidebar";
 
 const mainNav = [
@@ -107,8 +108,11 @@ export function AppSidebar() {
 				</SidebarGroup>
 			</SidebarContent>
 
-			<SidebarFooter className="p-4">
+			<SidebarFooter className="p-2">
 				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarTrigger className="w-full justify-start gap-2 h-8 px-2 text-muted-foreground hover:text-foreground" />
+					</SidebarMenuItem>
 					<SidebarMenuItem>
 						<SidebarMenuButton tooltip="Agent Status" size="lg">
 							<div className="relative flex size-8 items-center justify-center">

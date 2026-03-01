@@ -64,7 +64,15 @@ const typeConfig = {
 	system: { icon: Zap, className: "text-muted-foreground", animate: false },
 };
 
-export function AgentActivity() {
+export function AgentActivity({ searchQuery = "" }: { searchQuery?: string }) {
+	const filtered = recentActivity.filter((event) => {
+		if (!searchQuery) return true;
+		const q = searchQuery.toLowerCase();
+		return event.action.toLowerCase().includes(q) || event.detail.toLowerCase().includes(q);
+	});
+
+	if (searchQuery && filtered.length === 0) return null;
+
 	return (
 		<Card className="gap-4 py-4">
 			<CardHeader className="pb-0">
@@ -82,7 +90,7 @@ export function AgentActivity() {
 			</CardHeader>
 			<CardContent>
 				<div className="flex flex-col gap-1">
-					{recentActivity.map((event) => {
+					{filtered.map((event) => {
 						const config = typeConfig[event.type];
 						const Icon = config.icon;
 						return (

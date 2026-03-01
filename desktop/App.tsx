@@ -11,25 +11,28 @@ import { AgentControl } from "@/components/dashboard/agent-control";
 export default function App() {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [result, setResult] = useState<{ title?: string; text?: string }>({});
+	const [searchQuery, setSearchQuery] = useState("");
 
 	const handleLogs = useCallback((newLogs: string[]) => {
 		setLogs((prev) => [...prev, ...newLogs]);
 	}, []);
 
-	const handleResult = useCallback(
-		(data: { title?: string; text?: string }) => {
-			setResult(data);
-		},
-		[],
-	);
+	const handleResult = useCallback((data: { title?: string; text?: string }) => {
+		setResult(data);
+	}, []);
+
+	const handleSearch = useCallback((query: string) => {
+		setSearchQuery(query);
+	}, []);
+
 	return (
 		<SidebarProvider>
 			<AppSidebar />
 			<SidebarInset>
-				<DashboardHeader />
+				<DashboardHeader onSearch={handleSearch} />
 				<div className="flex-1 overflow-y-auto bg-background">
 					<div className="flex flex-col gap-6 p-6">
-						<StatsCards />
+						<StatsCards searchQuery={searchQuery} />
 						<AgentControl onLogs={handleLogs} onResult={handleResult} />
 						{/* Electron Playwright Results Section */}
 						{(logs.length > 0 || result.title) && (
@@ -88,14 +91,14 @@ export default function App() {
 											7 total tasks
 										</span>
 									</div>
-									<PipelineView />
+									<PipelineView searchQuery={searchQuery} />
 								</div>
 							</div>
 
 							<div className="flex flex-col gap-6">
-								<AgentActivity />
-								<DeadlinesList />
-								<CourseOverview />
+								<AgentActivity searchQuery={searchQuery} />
+								<DeadlinesList searchQuery={searchQuery} />
+								<CourseOverview searchQuery={searchQuery} />
 							</div>
 						</div>
 					</div>

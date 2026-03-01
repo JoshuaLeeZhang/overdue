@@ -57,7 +57,15 @@ const courses: Course[] = [
 	},
 ];
 
-export function CourseOverview() {
+export function CourseOverview({ searchQuery = "" }: { searchQuery?: string }) {
+	const filtered = courses.filter((course) => {
+		if (!searchQuery) return true;
+		const q = searchQuery.toLowerCase();
+		return course.name.toLowerCase().includes(q) || course.code.toLowerCase().includes(q);
+	});
+
+	if (searchQuery && filtered.length === 0) return null;
+
 	return (
 		<Card className="gap-4 py-4">
 			<CardHeader className="pb-0">
@@ -68,7 +76,7 @@ export function CourseOverview() {
 			</CardHeader>
 			<CardContent>
 				<div className="flex flex-col gap-3">
-					{courses.map((course) => (
+					{filtered.map((course) => (
 						<div key={course.code} className="flex flex-col gap-1.5">
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-2">

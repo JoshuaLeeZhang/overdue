@@ -55,10 +55,18 @@ const stats: StatCard[] = [
 	},
 ];
 
-export function StatsCards() {
+export function StatsCards({ searchQuery = "" }: { searchQuery?: string }) {
+	const filtered = stats.filter((stat) => {
+		if (!searchQuery) return true;
+		const q = searchQuery.toLowerCase();
+		return stat.title.toLowerCase().includes(q) || stat.subtitle.toLowerCase().includes(q);
+	});
+
+	if (searchQuery && filtered.length === 0) return null;
+
 	return (
 		<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-			{stats.map((stat) => (
+			{filtered.map((stat) => (
 				<Card key={stat.title} className="gap-4 py-4">
 					<CardHeader className="pb-0">
 						<div className="flex items-center justify-between">
@@ -127,7 +135,17 @@ const upcomingDeadlines = [
 	},
 ];
 
-export function DeadlinesList() {
+export function DeadlinesList({ searchQuery = "" }: { searchQuery?: string }) {
+	const filtered = upcomingDeadlines.filter((item) => {
+		if (!searchQuery) return true;
+		const q = searchQuery.toLowerCase();
+		return (
+			item.title.toLowerCase().includes(q) ||
+			item.course.toLowerCase().includes(q) ||
+			(item.urgent && "urgent".includes(q))
+		);
+	});
+
 	return (
 		<Card className="gap-4 py-4">
 			<CardHeader className="pb-0">
@@ -138,39 +156,45 @@ export function DeadlinesList() {
 			</CardHeader>
 			<CardContent>
 				<div className="flex flex-col gap-2">
-					{upcomingDeadlines.map((item, i) => (
-						<div
-							key={i}
-							className={cn(
-								"flex items-center justify-between rounded-md border border-border p-2.5 transition-colors hover:bg-accent",
-								item.urgent && "border-destructive/30 bg-destructive/5",
-							)}
-						>
-							<div className="flex items-center gap-2.5">
-								{item.urgent ? (
-									<AlertTriangle className="size-3.5 text-destructive" />
-								) : (
-									<Clock className="size-3.5 text-muted-foreground" />
-								)}
-								<div className="flex flex-col">
-									<span className="text-sm font-medium text-foreground">
-										{item.title}
-									</span>
-									<span className="text-xs text-muted-foreground">
-										{item.course}
-									</span>
-								</div>
-							</div>
-							<span
+					{filtered.length === 0 ? (
+						<p className="py-4 text-center text-sm text-muted-foreground">
+							No deadlines match &ldquo;{searchQuery}&rdquo;
+						</p>
+					) : (
+						filtered.map((item, i) => (
+							<div
+								key={i}
 								className={cn(
-									"text-xs font-medium",
-									item.urgent ? "text-destructive" : "text-muted-foreground",
+									"flex items-center justify-between rounded-md border border-border p-2.5 transition-colors hover:bg-accent",
+									item.urgent && "border-destructive/30 bg-destructive/5",
 								)}
 							>
-								{item.due}
-							</span>
-						</div>
-					))}
+								<div className="flex items-center gap-2.5">
+									{item.urgent ? (
+										<AlertTriangle className="size-3.5 text-destructive" />
+									) : (
+										<Clock className="size-3.5 text-muted-foreground" />
+									)}
+									<div className="flex flex-col">
+										<span className="text-sm font-medium text-foreground">
+											{item.title}
+										</span>
+										<span className="text-xs text-muted-foreground">
+											{item.course}
+										</span>
+									</div>
+								</div>
+								<span
+									className={cn(
+										"text-xs font-medium",
+										item.urgent ? "text-destructive" : "text-muted-foreground",
+									)}
+								>
+									{item.due}
+								</span>
+							</div>
+						))
+					)}
 				</div>
 			</CardContent>
 		</Card>
