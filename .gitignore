@@ -16,3 +16,5 @@ dist
 
 # Persistent browser profile (cookies, logins) — keep local only
 .browser-profile
+
+out
