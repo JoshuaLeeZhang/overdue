@@ -5,31 +5,39 @@
  *
  * Run directly: npm run login (or node dist/agent/login.js from project root)
  */
-import path from 'path';
-import { chromium } from 'playwright';
+import path from "path";
+import { chromium } from "playwright";
 
-const LEARN_URL = 'https://learn.uwaterloo.ca/';
-const userDataDir = process.env.BROWSER_PROFILE_PATH || path.join(process.cwd(), '.browser-profile');
+const LEARN_URL = "https://learn.uwaterloo.ca/";
+const userDataDir =
+	process.env.BROWSER_PROFILE_PATH ||
+	path.join(process.cwd(), ".browser-profile");
 
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception:', err);
+process.on("uncaughtException", (err) => {
+	console.error("Uncaught exception:", err);
 });
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled rejection:', err);
+process.on("unhandledRejection", (err) => {
+	console.error("Unhandled rejection:", err);
 });
 
 async function run(): Promise<void> {
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
-    args: ['--start-maximized', '--disable-background-timer-throttling', '--no-first-run'],
-    acceptDownloads: false,
-  });
+	const context = await chromium.launchPersistentContext(userDataDir, {
+		headless: false,
+		args: [
+			"--start-maximized",
+			"--disable-background-timer-throttling",
+			"--no-first-run",
+		],
+		acceptDownloads: false,
+	});
 
-  const page = await context.newPage();
-  page.setDefaultNavigationTimeout(60000);
-  page.setDefaultTimeout(30000);
+	const page = await context.newPage();
+	page.setDefaultNavigationTimeout(60000);
+	page.setDefaultTimeout(30000);
 
-  await page.goto('data:text/html,' + encodeURIComponent(`
+	await page.goto(
+		"data:text/html," +
+			encodeURIComponent(`
     <!DOCTYPE html>
     <html>
     <head><title>LEARN Login</title></head>
@@ -40,14 +48,15 @@ async function run(): Promise<void> {
       <p style="color: #666; font-size: 0.9rem;">Your session is saved for future scrapes.</p>
     </body>
     </html>
-  `));
+  `),
+	);
 
-  await new Promise<void>((resolve) => {
-    context.on('close', () => resolve());
-  });
+	await new Promise<void>((resolve) => {
+		context.on("close", () => resolve());
+	});
 }
 
 run().catch((err) => {
-  console.error(err);
-  process.exit(1);
+	console.error(err);
+	process.exit(1);
 });

@@ -1,57 +1,57 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import * as path from 'path';
-import { runAgent } from '../agent/agent';
+import { app, BrowserWindow, ipcMain } from "electron";
+import * as path from "path";
+import { runAgent } from "../agent/agent";
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
-  });
+	mainWindow = new BrowserWindow({
+		width: 1200,
+		height: 800,
+		webPreferences: {
+			nodeIntegration: true,
+			contextIsolation: false,
+		},
+	});
 
-  // electron-vite provides an env var when in dev, pointing to the dev server
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '../out/renderer/index.html'));
-  }
+	// electron-vite provides an env var when in dev, pointing to the dev server
+	if (process.env["ELECTRON_RENDERER_URL"]) {
+		mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+	} else {
+		mainWindow.loadFile(path.join(__dirname, "../out/renderer/index.html"));
+	}
 
-  // Open the DevTools automatically for debugging if needed
-  // mainWindow.webContents.openDevTools();
+	// Open the DevTools automatically for debugging if needed
+	// mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
-  createWindow();
+	createWindow();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+	app.on("activate", () => {
+		if (BrowserWindow.getAllWindows().length === 0) {
+			createWindow();
+		}
+	});
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+app.on("window-all-closed", () => {
+	if (process.platform !== "darwin") {
+		app.quit();
+	}
 });
 
 // Use the shared agent (agent/agent.ts); logs and result are forwarded to the renderer
-ipcMain.on('agent:start', async (event) => {
-  const log = (msg: string) => {
-    console.log(msg);
-    event.reply('agent:log', msg);
-  };
+ipcMain.on("agent:start", async (event) => {
+	const log = (msg: string) => {
+		console.log(msg);
+		event.reply("agent:log", msg);
+	};
 
-  try {
-    const result = await runAgent({ log });
-    event.reply('agent:result', result);
-  } catch (error: any) {
-    log(`Error: ${error?.message || 'Unknown error occurred'}`);
-  }
+	try {
+		const result = await runAgent({ log });
+		event.reply("agent:result", result);
+	} catch (error: any) {
+		log(`Error: ${error?.message || "Unknown error occurred"}`);
+	}
 });
