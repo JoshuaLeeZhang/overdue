@@ -1,7 +1,8 @@
 const { chromium } = require('playwright');
 const { userDataDir, acquireLock, releaseLock } = require('./session-lock');
 
-const URL = 'https://example.com';
+const DEFAULT_URL = 'https://example.com';
+const URL = process.env.AGENT_URL || DEFAULT_URL;
 
 async function run() {
   await acquireLock();
