@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Bot, Play, Square, Loader2, Zap, Shield, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,25 +11,32 @@ type AgentState = "idle" | "starting" | "running" | "stopping";
 interface AgentControlProps {
 	onLogs?: (logs: string[]) => void;
 	onResult?: (result: { title?: string; text?: string }) => void;
+	agentState: AgentState;
+	onStateChange: (state: AgentState) => void;
 }
 
-export function AgentControl({ onLogs, onResult }: AgentControlProps) {
-	const [agentState, setAgentState] = useState<AgentState>("idle");
-
+export function AgentControl({ 
+	onLogs, 
+	onResult, 
+	agentState, 
+	onStateChange 
+}: AgentControlProps) {
 	useEffect(() => {
 		const handleLog = (_event: any, message: string) => {
 			// When we get the first log after starting, flip to "running"
-			setAgentState((prev) => (prev === "starting" ? "running" : prev));
+			if (agentState === "starting") {
+				onStateChange("running");
+			}
 			onLogs?.([message]);
 		};
 
 		const handleResult = (_event: any, data: any) => {
 			onResult?.(data);
-			setAgentState("idle");
+			onStateChange("idle");
 		};
 
 		const handleError = () => {
-			setAgentState("idle");
+			onStateChange("idle");
 		};
 
 		ipcRenderer.on("agent:log", handleLog);
@@ -41,20 +48,19 @@ export function AgentControl({ onLogs, onResult }: AgentControlProps) {
 			ipcRenderer.removeListener("agent:result", handleResult);
 			ipcRenderer.removeListener("agent:error", handleError);
 		};
-	}, [onLogs, onResult]);
+	}, [onLogs, onResult, agentState, onStateChange]);
 
 	function handleToggle() {
 		if (agentState === "idle") {
-			setAgentState("starting");
+			onStateChange("starting");
 			ipcRenderer.send("agent:start");
 		} else if (agentState === "running") {
-			setAgentState("stopping");
+			onStateChange("stopping");
 			ipcRenderer.send("agent:stop");
 			// Fallback: if no stop confirmation comes, reset after 1.5s
-			setTimeout(
-				() => setAgentState((prev) => (prev === "stopping" ? "idle" : prev)),
-				1500,
-			);
+			setTimeout(() => {
+				onStateChange("idle");
+			}, 1500);
 		}
 	}
 

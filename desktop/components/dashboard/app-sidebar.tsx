@@ -9,7 +9,11 @@ import {
 	Settings,
 	Bell,
 	GraduationCap,
+	Loader2,
 } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import type { AgentState } from "../../App";
 
 import {
 	Sidebar,
@@ -35,16 +39,18 @@ const mainNav = [
 ];
 
 const secondaryNav = [
-	{ title: "Notifications", icon: Bell, badge: "2" },
 	{ title: "Settings", icon: Settings },
 ];
 
 interface AppSidebarProps {
 	activePage: string;
 	onPageChange: (page: string) => void;
+	agentState: AgentState;
 }
 
-export function AppSidebar({ activePage, onPageChange }: AppSidebarProps) {
+export function AppSidebar({ activePage, onPageChange, agentState }: AppSidebarProps) {
+	const isAgentRunning = agentState === "running" || agentState === "starting";
+	
 	return (
 		<Sidebar collapsible="icon" className="border-r border-sidebar-border">
 			<SidebarHeader className="p-4">
@@ -121,18 +127,32 @@ export function AppSidebar({ activePage, onPageChange }: AppSidebarProps) {
 			<SidebarFooter className="p-2">
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarTrigger className="w-full justify-start gap-2 h-8 px-2 text-muted-foreground hover:text-foreground" />
-					</SidebarMenuItem>
-					<SidebarMenuItem>
 						<SidebarMenuButton tooltip="Agent Status" size="lg">
 							<div className="relative flex size-8 items-center justify-center">
-								<Bot className="size-4 text-primary" />
-								<span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-primary ring-2 ring-sidebar" />
+								{agentState === "starting" || agentState === "stopping" ? (
+									<Loader2 className="size-4 animate-spin text-primary" />
+								) : (
+									<Bot className={cn("size-4", isAgentRunning ? "text-primary" : "text-muted-foreground")} />
+								)}
+								{isAgentRunning && (
+									<span className={cn(
+										"absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-sidebar",
+										agentState === "starting" ? "bg-chart-3" : "bg-primary"
+									)} />
+								)}
 							</div>
 							<div className="flex flex-col">
-								<span className="text-xs font-medium">Agent Active</span>
-								<span className="text-xs text-muted-foreground">
-									Processing 2 tasks
+								<span className="text-xs font-medium">
+									{agentState === "idle" && "Agent Offline"}
+									{agentState === "starting" && "Starting..."}
+									{agentState === "running" && "Agent Running"}
+									{agentState === "stopping" && "Stopping..."}
+								</span>
+								<span className="text-[10px] text-muted-foreground leading-tight">
+									{agentState === "idle" && "Standby mode"}
+									{agentState === "starting" && "Initializing sync"}
+									{agentState === "running" && "Processing tasks"}
+									{agentState === "stopping" && "Winding down"}
 								</span>
 							</div>
 						</SidebarMenuButton>

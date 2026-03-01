@@ -8,11 +8,14 @@ import { AgentActivity } from "@/components/dashboard/agent-activity";
 import { CourseOverview } from "@/components/dashboard/course-overview";
 import { AgentControl } from "@/components/dashboard/agent-control";
 
+export type AgentState = "idle" | "starting" | "running" | "stopping";
+
 export default function App() {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [result, setResult] = useState<{ title?: string; text?: string }>({});
 	const [searchQuery, setSearchQuery] = useState("");
 	const [activePage, setActivePage] = useState("Dashboard");
+	const [agentState, setAgentState] = useState<AgentState>("idle");
 
 	const handleLogs = useCallback((newLogs: string[]) => {
 		setLogs((prev) => [...prev, ...newLogs]);
@@ -51,7 +54,12 @@ export default function App() {
 				return (
 					<div className="flex flex-col gap-6 p-6">
 						<StatsCards searchQuery={searchQuery} />
-						<AgentControl onLogs={handleLogs} onResult={handleResult} />
+						<AgentControl 
+							onLogs={handleLogs} 
+							onResult={handleResult} 
+							agentState={agentState} 
+							onStateChange={setAgentState} 
+						/>
 						{/* Electron Playwright Results Section */}
 						{(logs.length > 0 || result.title) && (
 							<div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
@@ -126,7 +134,11 @@ export default function App() {
 
 	return (
 		<SidebarProvider>
-			<AppSidebar activePage={activePage} onPageChange={setActivePage} />
+			<AppSidebar 
+				activePage={activePage} 
+				onPageChange={setActivePage} 
+				agentState={agentState} 
+			/>
 			<SidebarInset>
 				<DashboardHeader onSearch={handleSearch} />
 				<div className="flex-1 overflow-y-auto bg-background">
