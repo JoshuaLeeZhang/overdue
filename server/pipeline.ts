@@ -2,9 +2,9 @@
  * Assignment pipeline: combines scraped context + writing style to generate draft or form-fill plan.
  * generateDraft uses Dedalus LLM when DEDALUS_API_KEY is set; otherwise returns a template.
  */
-import { getWritingStyleProfile } from '../lib/writing-style';
-import type { WritingStyleProfile } from '../lib/writing-style';
-import { runDedalusAgent } from './dedalus-runner';
+import { getWritingStyleProfile } from '../lib/writing-style.js';
+import type { WritingStyleProfile } from '../lib/writing-style.js';
+import { runDedalusAgent } from './dedalus-runner.js';
 
 export interface AssignmentSpec {
   instructions?: string;

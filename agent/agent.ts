@@ -1,38 +1,46 @@
 import { chromium } from 'playwright';
-import { userDataDir, acquireLock, releaseLock } from './session-lock';
+import { userDataDir, acquireLock, releaseLock } from './session-lock.js';
+import { getAgentUrl } from '../lib/agent-url.js';
 
-const DEFAULT_URL = 'https://example.com';
-const URL = process.env.AGENT_URL || DEFAULT_URL;
+export interface RunAgentOptions {
+  log?: (msg: string) => void;
+  /** Override URL (default: AGENT_URL env or DEFAULT_AGENT_URL) */
+  url?: string;
+}
 
-async function run(): Promise<void> {
+export interface RunAgentResult {
+  title: string;
+  text: string;
+}
+
+const defaultLog = (msg: string) => console.log(msg);
+
+export async function runAgent(options?: RunAgentOptions): Promise<RunAgentResult> {
+  const log = options?.log ?? defaultLog;
+  const url = options?.url ?? getAgentUrl();
+
   await acquireLock();
   try {
-    console.log('Launching browser (profile:', userDataDir, ')');
-    const browser = await chromium.launch({
+    log(`Launching browser (profile: ${userDataDir})`);
+    const context = await chromium.launchPersistentContext(userDataDir, {
       headless: false,
-      userDataDir,
-    } as import('playwright').LaunchOptions);
+    });
 
     try {
-      const page = await browser.newPage();
-      console.log('Navigating to URL');
-      await page.goto(URL);
+      const page = await context.newPage();
+      log('Navigating to URL');
+      await page.goto(url);
 
-      console.log('Extracting content');
+      log('Extracting content');
       const title = await page.title();
       const text = await page.locator('body').innerText();
 
-      console.log('Done');
-      console.log(JSON.stringify({ result: { title, text } }));
+      log('Done');
+      return { title, text };
     } finally {
-      await browser.close();
+      await context.close();
     }
   } finally {
     await releaseLock();
   }
 }
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});

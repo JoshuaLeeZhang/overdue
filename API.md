@@ -81,9 +81,24 @@ Return the last agent result (from most recent `/run-agent` or Dedalus run).
 
 ## Scraper
 
+### POST /scraper/login
+
+Open a visible browser with the persistent profile. User logs in to LMS/course sites, then closes the window. Subsequent scrapes use the saved session.
+
+**Response (202):**
+
+```json
+{
+  "ok": true,
+  "message": "Login browser opened. Log in to your sites, then close the window when done."
+}
+```
+
+---
+
 ### POST /scrape
 
-Scrape one or more URLs and return structured context. Uses headless Playwright.
+Scrape one or more URLs and return structured context. Uses headless Playwright with the persistent profile (`.browser-profile`), so scrapes use saved logins from the login flow.
 
 **Request body:**
 
@@ -174,3 +189,4 @@ Connect to `ws://localhost:3000` (same host as HTTP).
 | PORT             | Server port (default 3000)                                 |
 | DEDALUS_API_KEY  | Required for Dedalus path. Get from [dashboard](https://www.dedaluslabs.ai/dashboard/api-keys). |
 | DEDALUS_MODEL    | Model override (default `anthropic/claude-sonnet-4`)       |
+| CONVEX_URL       | Convex deployment URL for persistent context store. Set automatically when you run `npm run dev:server` (Convex writes `.env.local`). Also derived from `CONVEX_DEPLOYMENT` if set. Without either, context is stored in-memory only. |

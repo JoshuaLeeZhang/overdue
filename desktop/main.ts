@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
-import { chromium } from 'playwright';
+import { runAgent } from '../agent/agent';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -41,38 +41,16 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Setup Playwright agent integration
+// Use the shared agent (agent/agent.ts); logs and result are forwarded to the renderer
 ipcMain.on('agent:start', async (event) => {
   const log = (msg: string) => {
-    console.log(msg); // to terminal
-    event.reply('agent:log', msg); // to UI
+    console.log(msg);
+    event.reply('agent:log', msg);
   };
 
   try {
-    log('Launching browser');
-    const browser = await chromium.launch({ headless: false });
-    
-    // Create new context & page
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    log('Navigating to URL');
-    await page.goto('https://example.com');
-
-    log('Extracting content');
-    const title = await page.title();
-    // We only extract the generic text from the body to keep it simple, as requested.
-    const text = await page.evaluate(() => document.body.innerText.trim());
-
-    // Send result back to the renderer
-    event.reply('agent:result', { title, text });
-
-    log('Done');
-    
-    // For this skeleton, we will close the browser after completion. 
-    // You could also leave it open for debugging.
-    await browser.close();
-
+    const result = await runAgent({ log });
+    event.reply('agent:result', result);
   } catch (error: any) {
     log(`Error: ${error?.message || 'Unknown error occurred'}`);
   }

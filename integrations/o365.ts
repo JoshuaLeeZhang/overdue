@@ -3,8 +3,8 @@
  * Stub: returns "not configured" until OAuth (Azure AD) and Graph API are wired.
  * Set env: MS_CLIENT_ID, MS_CLIENT_SECRET, MS_REFRESH_TOKEN (or equivalent) for a real implementation.
  */
-import { getWritingStyleProfile } from '../lib/writing-style';
-import type { WritingStyleProfile } from '../lib/writing-style';
+import { getWritingStyleProfile } from '../lib/writing-style.js';
+import type { WritingStyleProfile } from '../lib/writing-style.js';
 
 export interface O365File {
   name: string;

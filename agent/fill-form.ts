@@ -11,7 +11,7 @@ interface FillFormJob {
 }
 
 const job: FillFormJob = process.env.AGENT_JOB ? JSON.parse(process.env.AGENT_JOB) : {};
-const url = job.url || 'https://example.com';
+const url = job.url || 'https://learn.uwaterloo.ca';
 const values = job.values || {};
 
 async function run(): Promise<void> {

@@ -1,10 +1,18 @@
+import 'dotenv/config';
+import { config } from 'dotenv';
+config({ path: '.env.local' }); // Convex and other overrides
 import express from 'express';
 import { createServer } from 'http';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws';
-import { generateDraft } from './pipeline';
-import { runDedalusAgent } from './dedalus-runner';
+import { generateDraft } from './pipeline.js';
+import { runDedalusAgent } from './dedalus-runner.js';
+import { runAgent } from '../agent/agent.js';
+import { getContextStore } from './context-store.js';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -13,8 +21,6 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 const clients = new Set<import('ws').WebSocket>();
 let lastResult: { title?: string; text?: string } | null = null;
-const contextStore = new Map<string, { pages?: { url: string; title: string; text: string }[] }>();
-let contextIdCounter = 0;
 
 wss.on('connection', (ws) => {
   clients.add(ws);
@@ -55,7 +61,7 @@ app.post('/run-agent', async (req, res) => {
     const prompt =
       typeof input === 'string' && input.trim()
         ? input.trim()
-        : `Go to ${url || 'https://example.com'} and extract the page title and main text.`;
+        : `Go to ${url || 'https://learn.uwaterloo.ca'} and extract the page title and main text.`;
     try {
       broadcast({ type: 'log', payload: 'Running Dedalus agent (LLM + Browser Use MCP)...' });
       const result = await runDedalusAgent({ input: prompt, model });
@@ -69,71 +75,88 @@ app.post('/run-agent', async (req, res) => {
   }
 
   const projectRoot = path.join(__dirname, '..');
-  let agentPath: string;
-  const env = { ...process.env };
+
+  // fill_form jobs still run in a subprocess (different script)
   if (job && job.mode === 'fill_form' && job.url) {
-    agentPath = path.join(projectRoot, 'agent', 'fill-form.js');
-    env.AGENT_JOB = JSON.stringify({ mode: 'fill_form', url: job.url, values: job.values || {} });
-  } else {
-    agentPath = path.join(projectRoot, 'agent', 'agent.js');
-    if (url) env.AGENT_URL = url;
-  }
-
-  const child = spawn('node', [agentPath], {
-    cwd: projectRoot,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env,
-  });
-
-  let buffer = '';
-  function processLine(line: string): void {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    try {
-      const parsed = JSON.parse(trimmed) as { result?: unknown };
-      if (parsed.result != null) {
-        lastResult = parsed.result as { title?: string; text?: string };
-        broadcast({ type: 'result', payload: parsed.result });
-        return;
+    const agentPath = path.join(projectRoot, 'agent', 'fill-form.js');
+    const env = {
+      ...process.env,
+      AGENT_JOB: JSON.stringify({ mode: 'fill_form', url: job.url, values: job.values || {} }),
+    };
+    const child = spawn('node', [agentPath], {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    });
+    let buffer = '';
+    function processLine(line: string): void {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      try {
+        const parsed = JSON.parse(trimmed) as { result?: unknown };
+        if (parsed.result != null) {
+          lastResult = parsed.result as { title?: string; text?: string };
+          broadcast({ type: 'result', payload: parsed.result });
+          return;
+        }
+      } catch {
+        // not JSON
       }
-    } catch {
-      // not JSON
+      broadcast({ type: 'log', payload: trimmed });
     }
-    broadcast({ type: 'log', payload: trimmed });
+    child.stdout?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    });
+    child.stderr?.setEncoding('utf8');
+    child.stderr?.on('data', (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    });
+    child.on('close', (code) => {
+      if (buffer.trim()) processLine(buffer);
+      broadcast({ type: 'end', code });
+    });
+    return res.status(202).json({ ok: true, message: 'Agent started' });
   }
 
-  child.stdout?.setEncoding('utf8');
-  child.stdout?.on('data', (chunk: string) => {
-    buffer += chunk;
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    lines.forEach(processLine);
-  });
-
-  child.stderr?.setEncoding('utf8');
-  child.stderr?.on('data', (chunk: string) => {
-    buffer += chunk;
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    lines.forEach(processLine);
-  });
-
-  child.on('close', (code) => {
-    if (buffer.trim()) processLine(buffer);
-    broadcast({ type: 'end', code });
-  });
-
+  // Simple extract: run agent in the same process
   res.status(202).json({ ok: true, message: 'Agent started' });
+  (async () => {
+    try {
+      const result = await runAgent({
+        log: (msg) => broadcast({ type: 'log', payload: msg }),
+        ...(url && { url }),
+      });
+      lastResult = result;
+      broadcast({ type: 'result', payload: result });
+      broadcast({ type: 'end', code: 0 });
+    } catch (err) {
+      broadcast({ type: 'log', payload: String(err) });
+      broadcast({ type: 'end', code: 1 });
+    }
+  })();
 });
+
+const projectRoot = path.join(__dirname, '..');
+const browserProfilePath = path.join(process.cwd(), '.browser-profile');
 
 function runScraper(urls: string[]): Promise<{ pages: { url: string; title: string; text: string }[] }> {
   return new Promise((resolve, reject) => {
-    const projectRoot = path.join(__dirname, '..');
     const scraperPath = path.join(projectRoot, 'agent', 'scraper.js');
     const child = spawn('node', [scraperPath], {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, AGENT_JOB: JSON.stringify({ mode: 'scrape', urls }) },
+      env: {
+        ...process.env,
+        AGENT_JOB: JSON.stringify({ mode: 'scrape', urls }),
+        BROWSER_PROFILE_PATH: browserProfilePath,
+      },
     });
     let buffer = '';
     let result: { pages: { url: string; title: string; text: string }[] } | null = null;
@@ -171,6 +194,17 @@ function runScraper(urls: string[]): Promise<{ pages: { url: string; title: stri
   });
 }
 
+app.post('/scraper/login', (_req, res) => {
+  const loginPath = path.join(projectRoot, 'agent', 'login.js');
+  spawn('node', [loginPath], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    env: { ...process.env, BROWSER_PROFILE_PATH: browserProfilePath },
+    detached: true,
+  }).unref();
+  res.status(202).json({ ok: true, message: 'Login browser opened for learn.uwaterloo.ca. Log in, then close the window when done.' });
+});
+
 app.post('/scrape', async (req, res) => {
   const urls = req.body && Array.isArray(req.body.urls) ? (req.body.urls as string[]) : [];
   if (urls.length === 0) {
@@ -178,16 +212,17 @@ app.post('/scrape', async (req, res) => {
   }
   try {
     const context = await runScraper(urls);
-    const contextId = `ctx_${++contextIdCounter}`;
-    contextStore.set(contextId, context);
+    const store = await getContextStore();
+    const contextId = await store.set(context);
     res.json({ contextId, context });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-app.get('/context/:id', (req, res) => {
-  const context = contextStore.get(req.params.id);
+app.get('/context/:id', async (req, res) => {
+  const store = await getContextStore();
+  const context = await store.get(req.params.id);
   if (!context) return res.status(404).json({ error: 'Context not found' });
   res.json(context);
 });
@@ -199,7 +234,8 @@ app.post('/pipeline/draft', async (req, res) => {
     context?: { pages?: { url: string; title: string; text: string }[] };
     styleProfile?: import('../lib/writing-style').WritingStyleProfile | null;
   };
-  const context = contextBody || (contextId ? contextStore.get(contextId) : null) || { pages: [] };
+  const store = await getContextStore();
+  const context = contextBody || (contextId ? await store.get(contextId) : null) || { pages: [] };
   try {
     const { draft } = await generateDraft(
       assignmentSpec as import('./pipeline').AssignmentSpec,

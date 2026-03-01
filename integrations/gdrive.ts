@@ -4,8 +4,8 @@
  * Without tokens, all methods return { error: 'Google Drive not configured' }.
  */
 import { google } from 'googleapis';
-import { getWritingStyleProfile } from '../lib/writing-style';
-import type { WritingStyleProfile } from '../lib/writing-style';
+import { getWritingStyleProfile } from '../lib/writing-style.js';
+import type { WritingStyleProfile } from '../lib/writing-style.js';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 
