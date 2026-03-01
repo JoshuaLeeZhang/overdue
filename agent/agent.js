@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 
-const URL = 'https://example.com';
+const DEFAULT_URL = 'https://example.com';
+const URL = process.env.AGENT_URL || DEFAULT_URL;
 
 async function run() {
   console.log('Launching browser');
