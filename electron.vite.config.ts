@@ -18,6 +18,11 @@ export default defineConfig({
           index: resolve(__dirname, 'desktop/index.html')
         }
       }
+    },
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, 'desktop')
+      }
     }
   }
 })

@@ -14,7 +14,11 @@
     "declarationMap": true,
     "sourceMap": true,
     "jsx": "react-jsx",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./desktop/*"]
+    }
   },
   "include": [
     "agent/**/*.ts",
