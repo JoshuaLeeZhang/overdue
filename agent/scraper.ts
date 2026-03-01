@@ -3,16 +3,21 @@
  * Reads AGENT_JOB from env: JSON with { mode: "scrape", urls: string[] }.
  * Outputs one JSON line: { result: { context: { pages: [{ url, title, text }] } } }
  */
-const { chromium } = require('playwright');
+import { chromium } from 'playwright';
 
-const job = process.env.AGENT_JOB ? JSON.parse(process.env.AGENT_JOB) : { mode: 'scrape', urls: [] };
+interface ScrapeJob {
+  mode: string;
+  urls?: string[];
+}
+
+const job: ScrapeJob = process.env.AGENT_JOB ? JSON.parse(process.env.AGENT_JOB) : { mode: 'scrape', urls: [] };
 const urls = job.urls && job.urls.length ? job.urls : [];
 
-async function run() {
+async function run(): Promise<void> {
   console.log('Launching browser');
   const browser = await chromium.launch({ headless: true });
 
-  const pages = [];
+  const pages: { url: string; title: string; text: string }[] = [];
   try {
     const page = await browser.newPage();
     for (const url of urls) {
@@ -23,7 +28,7 @@ async function run() {
         const text = await page.locator('body').innerText();
         pages.push({ url, title, text: text.slice(0, 50000) });
       } catch (err) {
-        pages.push({ url, title: '', text: `Error: ${err.message}` });
+        pages.push({ url, title: '', text: `Error: ${(err as Error).message}` });
       }
     }
     console.log('Extracting content');

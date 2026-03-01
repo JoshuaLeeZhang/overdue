@@ -3,10 +3,30 @@
  * Stub: returns "not configured" until OAuth (Azure AD) and Graph API are wired.
  * Set env: MS_CLIENT_ID, MS_CLIENT_SECRET, MS_REFRESH_TOKEN (or equivalent) for a real implementation.
  */
-const path = require('path');
-const { getWritingStyleProfile } = require(path.join(__dirname, '..', 'lib', 'writing-style.js'));
+import { getWritingStyleProfile } from '../lib/writing-style';
+import type { WritingStyleProfile } from '../lib/writing-style';
 
-function getClient() {
+export interface O365File {
+  name: string;
+  id: string;
+}
+
+export interface ListFilesResult {
+  error?: string;
+  files?: O365File[];
+}
+
+export interface ReadDocumentResult {
+  error?: string;
+  text?: string;
+}
+
+export interface GetWritingStyleResult {
+  error?: string;
+  profile?: WritingStyleProfile;
+}
+
+export function getClient(): null {
   if (!process.env.MS_CLIENT_ID || !process.env.MS_CLIENT_SECRET || !process.env.MS_REFRESH_TOKEN) {
     return null;
   }
@@ -14,7 +34,7 @@ function getClient() {
   return null;
 }
 
-async function listFiles(options = {}) {
+export async function listFiles(_options: { folderId?: string; pageSize?: number } = {}): Promise<ListFilesResult> {
   if (!getClient()) {
     return { error: 'Office 365 not configured. Set MS_CLIENT_ID, MS_CLIENT_SECRET, MS_REFRESH_TOKEN.' };
   }
@@ -22,22 +42,23 @@ async function listFiles(options = {}) {
   return { files: [] };
 }
 
-async function readDocument(itemId) {
+export async function readDocument(itemId: string): Promise<ReadDocumentResult> {
   if (!getClient()) {
     return { error: 'Office 365 not configured.' };
   }
   // TODO: download Word doc via Graph, extract text (e.g. mammoth)
+  void itemId;
   return { text: '' };
 }
 
-async function getWritingStyle(itemIds) {
+export async function getWritingStyle(itemIds: string[]): Promise<GetWritingStyleResult> {
   if (!getClient()) {
     return { error: 'Office 365 not configured.' };
   }
   if (!Array.isArray(itemIds) || itemIds.length === 0) {
     return { error: 'itemIds array required' };
   }
-  const texts = [];
+  const texts: string[] = [];
   for (const id of itemIds) {
     const out = await readDocument(id);
     if (out.error) return out;
@@ -46,5 +67,3 @@ async function getWritingStyle(itemIds) {
   const profile = getWritingStyleProfile(texts);
   return { profile };
 }
-
-module.exports = { listFiles, readDocument, getWritingStyle, getClient };

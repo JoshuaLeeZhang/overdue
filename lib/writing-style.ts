@@ -3,7 +3,28 @@
  * Profile: tone hint, avg sentence/paragraph length, vocabulary level hint, optional excerpts.
  */
 
-function analyzeText(text) {
+export interface TextStats {
+  wordCount: number;
+  sentenceCount: number;
+  paragraphCount: number;
+  avgSentenceLength: number;
+  avgParagraphLength: number;
+  avgWordLength: number;
+  tone: 'formal' | 'casual' | 'neutral';
+}
+
+export interface WritingStyleProfile {
+  summary: string;
+  stats: {
+    tone: string;
+    avgSentenceLength: number;
+    avgParagraphLength: number;
+    wordCount: number;
+  } | null;
+  excerpts?: string[];
+}
+
+function analyzeText(text: string | null | undefined): TextStats | null {
   if (!text || typeof text !== 'string') return null;
   const trimmed = text.trim();
   if (!trimmed.length) return null;
@@ -20,7 +41,7 @@ function analyzeText(text) {
   const casualMarkers = /\b(pretty|kinda|gonna|wanna|gotta|yeah|okay|stuff|things)\b/gi;
   const formalCount = (trimmed.match(formalMarkers) || []).length;
   const casualCount = (trimmed.match(casualMarkers) || []).length;
-  const tone = formalCount > casualCount ? 'formal' : casualCount > formalCount ? 'casual' : 'neutral';
+  const tone: TextStats['tone'] = formalCount > casualCount ? 'formal' : casualCount > formalCount ? 'casual' : 'neutral';
 
   return {
     wordCount: words.length,
@@ -34,10 +55,10 @@ function analyzeText(text) {
 }
 
 /**
- * @param {string[]} textChunks - One or more raw text strings (e.g. from docs)
- * @returns {{ summary: string, stats: object, excerpts?: string[] }} writing-style profile
+ * @param textChunks - One or more raw text strings (e.g. from docs)
+ * @returns writing-style profile
  */
-function getWritingStyleProfile(textChunks) {
+export function getWritingStyleProfile(textChunks: string | string[]): WritingStyleProfile {
   const inputs = Array.isArray(textChunks) ? textChunks : [textChunks];
   const valid = inputs.filter((t) => t && typeof t === 'string' && t.trim().length > 0);
   if (valid.length === 0) {
@@ -73,4 +94,4 @@ function getWritingStyleProfile(textChunks) {
   };
 }
 
-module.exports = { analyzeText, getWritingStyleProfile };
+export { analyzeText };

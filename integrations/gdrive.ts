@@ -3,13 +3,41 @@
  * Requires env: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN (from OAuth flow).
  * Without tokens, all methods return { error: 'Google Drive not configured' }.
  */
-const { google } = require('googleapis');
-const path = require('path');
-const { getWritingStyleProfile } = require(path.join(__dirname, '..', 'lib', 'writing-style.js'));
+import { google } from 'googleapis';
+import { getWritingStyleProfile } from '../lib/writing-style';
+import type { WritingStyleProfile } from '../lib/writing-style';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.readonly'];
 
-function getClient() {
+export interface GDriveFile {
+  id: string;
+  name: string;
+  mimeType?: string;
+  modifiedTime?: string;
+}
+
+export interface ListFilesOptions {
+  folderId?: string;
+  pageSize?: number;
+  mimeType?: string;
+}
+
+export interface ListFilesResult {
+  error?: string;
+  files?: GDriveFile[];
+}
+
+export interface ReadDocumentResult {
+  error?: string;
+  text?: string;
+}
+
+export interface GetWritingStyleResult {
+  error?: string;
+  profile?: WritingStyleProfile;
+}
+
+export function getClient(): InstanceType<typeof google.auth.OAuth2> | null {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
@@ -19,7 +47,7 @@ function getClient() {
   return oauth2Client;
 }
 
-async function listFiles(options = {}) {
+export async function listFiles(options: ListFilesOptions = {}): Promise<ListFilesResult> {
   const auth = getClient();
   if (!auth) return { error: 'Google Drive not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN.' };
   const drive = google.drive({ version: 'v3', auth });
@@ -33,15 +61,16 @@ async function listFiles(options = {}) {
       fields: 'nextPageToken, files(id, name, mimeType, modifiedTime)',
       orderBy: 'modifiedTime desc',
     });
-    return { files: res.data.files || [] };
+    return { files: (res.data.files as GDriveFile[]) || [] };
   } catch (err) {
-    return { error: err.message || 'Failed to list files' };
+    return { error: (err as Error).message || 'Failed to list files' };
   }
 }
 
 const DOC_MIME = 'application/vnd.google-apps.document';
+void DOC_MIME;
 
-async function readDocument(docId) {
+export async function readDocument(docId: string): Promise<ReadDocumentResult> {
   const auth = getClient();
   if (!auth) return { error: 'Google Drive not configured.' };
   const drive = google.drive({ version: 'v3', auth });
@@ -50,21 +79,22 @@ async function readDocument(docId) {
       fileId: docId,
       mimeType: 'text/plain',
     });
-    const raw = res.data;
-    const text = typeof raw === 'string' ? raw : (Buffer.isBuffer(raw) ? raw.toString('utf8') : (raw && String(raw))) || '';
+    const raw = res.data as string | Buffer | unknown;
+    const text: string =
+      typeof raw === 'string' ? raw : Buffer.isBuffer(raw) ? raw.toString('utf8') : raw != null ? String(raw) : '';
     return { text };
   } catch (err) {
-    return { error: err.message || 'Failed to read document' };
+    return { error: (err as Error).message || 'Failed to read document' };
   }
 }
 
-async function getWritingStyle(docIds) {
+export async function getWritingStyle(docIds: string[]): Promise<GetWritingStyleResult> {
   const auth = getClient();
   if (!auth) return { error: 'Google Drive not configured.' };
   if (!Array.isArray(docIds) || docIds.length === 0) {
     return { error: 'docIds array required' };
   }
-  const texts = [];
+  const texts: string[] = [];
   for (const id of docIds) {
     const out = await readDocument(id);
     if (out.error) return out;
@@ -73,5 +103,3 @@ async function getWritingStyle(docIds) {
   const profile = getWritingStyleProfile(texts);
   return { profile };
 }
-
-module.exports = { listFiles, readDocument, getWritingStyle, getClient };

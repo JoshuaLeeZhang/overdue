@@ -1,17 +1,17 @@
-const { chromium } = require('playwright');
-const { userDataDir, acquireLock, releaseLock } = require('./session-lock');
+import { chromium } from 'playwright';
+import { userDataDir, acquireLock, releaseLock } from './session-lock';
 
 const DEFAULT_URL = 'https://example.com';
 const URL = process.env.AGENT_URL || DEFAULT_URL;
 
-async function run() {
+async function run(): Promise<void> {
   await acquireLock();
   try {
     console.log('Launching browser (profile:', userDataDir, ')');
     const browser = await chromium.launch({
       headless: false,
       userDataDir,
-    });
+    } as import('playwright').LaunchOptions);
 
     try {
       const page = await browser.newPage();

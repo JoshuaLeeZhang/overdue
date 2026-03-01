@@ -3,20 +3,36 @@
  * generateDraft(assignmentSpec, context, styleProfile) -> draft text
  * prepareFormFill(assignmentSpec, context) -> { url, values } for the browser agent (sketch)
  */
-const path = require('path');
-const { getWritingStyleProfile } = require(path.join(__dirname, '..', 'lib', 'writing-style.js'));
+import { getWritingStyleProfile } from '../lib/writing-style';
+import type { WritingStyleProfile } from '../lib/writing-style';
+
+export interface AssignmentSpec {
+  instructions?: string;
+  type?: 'draft' | 'form' | 'both';
+  url?: string;
+}
+
+export interface ContextPage {
+  url: string;
+  title: string;
+  text: string;
+}
+
+export interface ScrapedContext {
+  pages?: ContextPage[];
+  files?: { name: string; text: string }[];
+}
 
 /**
  * Generate a draft from assignment spec, scraped context, and optional style profile.
  * Without an LLM this returns a template that weaves in context and style summary.
  * Plug in an LLM (e.g. OpenAI) later by replacing the body and using assignmentSpec.instructions + context.pages + style.summary.
- *
- * @param {{ instructions?: string, type?: 'draft'|'form'|'both', url?: string }} assignmentSpec
- * @param {{ pages?: { url: string, title: string, text: string }[], files?: { name: string, text: string }[] }} context
- * @param {{ summary?: string, stats?: object, excerpts?: string[] } | null} styleProfile
- * @returns {{ draft: string }}
  */
-function generateDraft(assignmentSpec, context, styleProfile) {
+export function generateDraft(
+  assignmentSpec: AssignmentSpec,
+  context: ScrapedContext,
+  styleProfile: WritingStyleProfile | null
+): { draft: string } {
   const instructions = assignmentSpec.instructions || 'No instructions provided.';
   const pages = (context && context.pages) || [];
   const styleSummary = (styleProfile && styleProfile.summary) || 'No writing style provided.';
@@ -40,7 +56,7 @@ function generateDraft(assignmentSpec, context, styleProfile) {
     contextBlob || '(No scraped context.)',
     '',
     '---',
-    'Generate your response above using the instructions and context, in the author\'s style.',
+    "Generate your response above using the instructions and context, in the author's style.",
   ].join('\n');
 
   return { draft };
@@ -49,12 +65,11 @@ function generateDraft(assignmentSpec, context, styleProfile) {
 /**
  * Prepare form-fill payload for the browser agent. Returns URL and key-value pairs.
  * Actual form field selectors would be produced by the agent or a separate step.
- *
- * @param {{ url?: string, instructions?: string }} assignmentSpec
- * @param {{ pages?: { url: string, title: string, text: string }[] }} context
- * @returns {{ url: string, values: Record<string, string> }}
  */
-function prepareFormFill(assignmentSpec, context) {
+export function prepareFormFill(
+  assignmentSpec: AssignmentSpec,
+  context: ScrapedContext
+): { url: string; values: Record<string, string>; note: string } {
   const url = assignmentSpec.url || (context && context.pages && context.pages[0] && context.pages[0].url) || '';
   return {
     url,
@@ -62,5 +77,3 @@ function prepareFormFill(assignmentSpec, context) {
     note: 'Form field mapping not implemented; extend pipeline with selector logic or LLM.',
   };
 }
-
-module.exports = { generateDraft, prepareFormFill };

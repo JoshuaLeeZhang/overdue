@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "server": "node server/server.js",
-    "electron": "electron desktop/main.js",
-    "mcp": "node server/mcp-server.js"
+    "build": "tsc",
+    "server": "node dist/server/server.js",
+    "electron": "electron dist/desktop/main.js",
+    "mcp": "node dist/server/mcp-server.js",
+    "dev:server": "tsc && node dist/server/server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
@@ -15,5 +17,11 @@
     "playwright": "^1.40.0",
     "ws": "^8.14.2",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0"
   }
 }

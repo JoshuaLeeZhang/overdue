@@ -2,17 +2,23 @@
  * Playwright form-fill agent. Reads AGENT_JOB from env: { mode: "fill_form", url, values: { fieldName: value } }.
  * Fills inputs by name or id; outputs result as JSON line for lastResult.
  */
-const { chromium } = require('playwright');
+import { chromium } from 'playwright';
 
-const job = process.env.AGENT_JOB ? JSON.parse(process.env.AGENT_JOB) : {};
+interface FillFormJob {
+  mode?: string;
+  url?: string;
+  values?: Record<string, string | number>;
+}
+
+const job: FillFormJob = process.env.AGENT_JOB ? JSON.parse(process.env.AGENT_JOB) : {};
 const url = job.url || 'https://example.com';
 const values = job.values || {};
 
-async function run() {
+async function run(): Promise<void> {
   console.log('Launching browser');
   const browser = await chromium.launch({ headless: false });
 
-  const filled = {};
+  const filled: Record<string, boolean> = {};
   try {
     const page = await browser.newPage();
     console.log('Navigating to URL');
@@ -24,7 +30,7 @@ async function run() {
         const selector = `[name="${name}"], #${name}`;
         await page.fill(selector, String(value));
         filled[name] = true;
-      } catch (_) {
+      } catch {
         filled[name] = false;
       }
     }

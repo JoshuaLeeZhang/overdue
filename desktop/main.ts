@@ -1,10 +1,10 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
+import { app, BrowserWindow } from 'electron';
+import path from 'path';
 
 const PORT = process.env.PORT || 3000;
 const UI_URL = `http://localhost:${PORT}`;
 
-function createWindow() {
+function createWindow(): void {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,

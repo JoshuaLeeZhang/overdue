@@ -66,6 +66,20 @@ This project is centered on building a **web agent** and integrates several idea
 
 ---
 
+## Development
+
+The project is written in TypeScript. Build and run:
+
+```bash
+npm install
+npm run build
+npm run server    # backend at http://localhost:3000
+npm run electron  # desktop app (requires server running)
+npm run mcp       # MCP server (stdio; requires server running)
+```
+
+---
+
 ## Summary
 
 **Overdue** is a **web agent** for academic busywork: it runs on the web to remind you about assignments, auto-complete the tedious ones, and review your submissions against rubrics so you stop wasting time.
