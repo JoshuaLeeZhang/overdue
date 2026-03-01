@@ -32,7 +32,6 @@ const mainNav = [
 	{ title: "Pipeline", icon: ListTodo, badge: "3" },
 	{ title: "Deadlines", icon: CalendarClock, badge: "5" },
 	{ title: "Courses", icon: BookOpen },
-	{ title: "Agent", icon: Bot },
 ];
 
 const secondaryNav = [
@@ -40,13 +39,23 @@ const secondaryNav = [
 	{ title: "Settings", icon: Settings },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+	activePage: string;
+	onPageChange: (page: string) => void;
+}
+
+export function AppSidebar({ activePage, onPageChange }: AppSidebarProps) {
 	return (
 		<Sidebar collapsible="icon" className="border-r border-sidebar-border">
 			<SidebarHeader className="p-4">
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton size="lg" tooltip="Overdue">
+						<SidebarMenuButton 
+							size="lg" 
+							tooltip="Overdue"
+							isActive={activePage === "Dashboard"}
+							onClick={() => onPageChange("Dashboard")}
+						>
 							<div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
 								<GraduationCap className="size-4" />
 							</div>
@@ -71,8 +80,9 @@ export function AppSidebar() {
 							{mainNav.map((item) => (
 								<SidebarMenuItem key={item.title}>
 									<SidebarMenuButton
-										isActive={item.isActive}
+										isActive={activePage === item.title}
 										tooltip={item.title}
+										onClick={() => onPageChange(item.title)}
 									>
 										<item.icon className="size-4" />
 										<span>{item.title}</span>

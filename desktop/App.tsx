@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -12,6 +12,7 @@ export default function App() {
 	const [logs, setLogs] = useState<string[]>([]);
 	const [result, setResult] = useState<{ title?: string; text?: string }>({});
 	const [searchQuery, setSearchQuery] = useState("");
+	const [activePage, setActivePage] = useState("Dashboard");
 
 	const handleLogs = useCallback((newLogs: string[]) => {
 		setLogs((prev) => [...prev, ...newLogs]);
@@ -25,12 +26,29 @@ export default function App() {
 		setSearchQuery(query);
 	}, []);
 
-	return (
-		<SidebarProvider>
-			<AppSidebar />
-			<SidebarInset>
-				<DashboardHeader onSearch={handleSearch} />
-				<div className="flex-1 overflow-y-auto bg-background">
+	const renderPage = () => {
+		switch (activePage) {
+			case "Pipeline":
+				return (
+					<div className="p-6">
+						<PipelineView searchQuery={searchQuery} />
+					</div>
+				);
+			case "Deadlines":
+				return (
+					<div className="p-6">
+						<DeadlinesList searchQuery={searchQuery} variant="page" />
+					</div>
+				);
+			case "Courses":
+				return (
+					<div className="p-6">
+						<CourseOverview searchQuery={searchQuery} variant="page" />
+					</div>
+				);
+			case "Dashboard":
+			default:
+				return (
 					<div className="flex flex-col gap-6 p-6">
 						<StatsCards searchQuery={searchQuery} />
 						<AgentControl onLogs={handleLogs} onResult={handleResult} />
@@ -102,6 +120,17 @@ export default function App() {
 							</div>
 						</div>
 					</div>
+				);
+		}
+	};
+
+	return (
+		<SidebarProvider>
+			<AppSidebar activePage={activePage} onPageChange={setActivePage} />
+			<SidebarInset>
+				<DashboardHeader onSearch={handleSearch} />
+				<div className="flex-1 overflow-y-auto bg-background">
+					{renderPage()}
 				</div>
 			</SidebarInset>
 		</SidebarProvider>

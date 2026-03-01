@@ -135,7 +135,13 @@ const upcomingDeadlines = [
 	},
 ];
 
-export function DeadlinesList({ searchQuery = "" }: { searchQuery?: string }) {
+export function DeadlinesList({ 
+	searchQuery = "", 
+	variant = "card" 
+}: { 
+	searchQuery?: string;
+	variant?: "card" | "page";
+}) {
 	const filtered = upcomingDeadlines.filter((item) => {
 		if (!searchQuery) return true;
 		const q = searchQuery.toLowerCase();
@@ -146,6 +152,62 @@ export function DeadlinesList({ searchQuery = "" }: { searchQuery?: string }) {
 		);
 	});
 
+	const content = (
+		<div className="flex flex-col gap-2">
+			{filtered.length === 0 ? (
+				<p className="py-4 text-center text-sm text-muted-foreground">
+					No deadlines match &ldquo;{searchQuery}&rdquo;
+				</p>
+			) : (
+				filtered.map((item, i) => (
+					<div
+						key={i}
+						className={cn(
+							"flex items-center justify-between rounded-md border border-border p-2.5 transition-colors hover:bg-accent",
+							item.urgent && "border-destructive/30 bg-destructive/5",
+						)}
+					>
+						<div className="flex items-center gap-2.5">
+							{item.urgent ? (
+								<AlertTriangle className="size-3.5 text-destructive" />
+							) : (
+								<Clock className="size-3.5 text-muted-foreground" />
+							)}
+							<div className="flex flex-col">
+								<span className="text-sm font-medium text-foreground">
+									{item.title}
+								</span>
+								<span className="text-xs text-muted-foreground">
+									{item.course}
+								</span>
+							</div>
+						</div>
+						<span
+							className={cn(
+								"text-xs font-medium",
+								item.urgent ? "text-destructive" : "text-muted-foreground",
+							)}
+						>
+							{item.due}
+						</span>
+					</div>
+				))
+			)}
+		</div>
+	);
+
+	if (variant === "page") {
+		return (
+			<div className="flex flex-col gap-6">
+				<div className="flex flex-col gap-1">
+					<h2 className="text-2xl font-bold tracking-tight text-foreground">Upcoming Deadlines</h2>
+					<p className="text-sm text-muted-foreground">Keep track of your upcoming academic commitments.</p>
+				</div>
+				{content}
+			</div>
+		);
+	}
+
 	return (
 		<Card className="gap-4 py-4">
 			<CardHeader className="pb-0">
@@ -155,47 +217,7 @@ export function DeadlinesList({ searchQuery = "" }: { searchQuery?: string }) {
 				</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<div className="flex flex-col gap-2">
-					{filtered.length === 0 ? (
-						<p className="py-4 text-center text-sm text-muted-foreground">
-							No deadlines match &ldquo;{searchQuery}&rdquo;
-						</p>
-					) : (
-						filtered.map((item, i) => (
-							<div
-								key={i}
-								className={cn(
-									"flex items-center justify-between rounded-md border border-border p-2.5 transition-colors hover:bg-accent",
-									item.urgent && "border-destructive/30 bg-destructive/5",
-								)}
-							>
-								<div className="flex items-center gap-2.5">
-									{item.urgent ? (
-										<AlertTriangle className="size-3.5 text-destructive" />
-									) : (
-										<Clock className="size-3.5 text-muted-foreground" />
-									)}
-									<div className="flex flex-col">
-										<span className="text-sm font-medium text-foreground">
-											{item.title}
-										</span>
-										<span className="text-xs text-muted-foreground">
-											{item.course}
-										</span>
-									</div>
-								</div>
-								<span
-									className={cn(
-										"text-xs font-medium",
-										item.urgent ? "text-destructive" : "text-muted-foreground",
-									)}
-								>
-									{item.due}
-								</span>
-							</div>
-						))
-					)}
-				</div>
+				{content}
 			</CardContent>
 		</Card>
 	);

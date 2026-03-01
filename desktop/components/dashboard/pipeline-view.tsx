@@ -118,6 +118,12 @@ export function PipelineView({ searchQuery = "" }: PipelineViewProps) {
 
 	return (
 		<div className="flex flex-col gap-6">
+			{!searchQuery && (
+				<div className="flex flex-col gap-1">
+					<h2 className="text-2xl font-bold tracking-tight text-foreground">Task Pipeline</h2>
+					<p className="text-sm text-muted-foreground">Manage and monitor your automated task execution.</p>
+				</div>
+			)}
 			{noResults ? (
 				<p className="py-6 text-center text-sm text-muted-foreground">
 					No tasks match &ldquo;{searchQuery}&rdquo;
