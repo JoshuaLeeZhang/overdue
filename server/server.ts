@@ -28,7 +28,8 @@ function broadcast(msg: object): void {
   });
 }
 
-const uiPath = path.join(__dirname, '../ui');
+// From dist/server/ we need to reach project root, then ui/
+const uiPath = path.join(__dirname, '../..', 'ui');
 app.use(express.json());
 app.use(express.static(uiPath));
 
