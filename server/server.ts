@@ -4,6 +4,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { generateDraft } from './pipeline';
+import { runDedalusAgent } from './dedalus-runner';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -38,13 +39,35 @@ app.get('/agent/last-result', (_req, res) => {
   res.json(lastResult);
 });
 
-app.post('/run-agent', (req, res) => {
+app.post('/run-agent', async (req, res) => {
   lastResult = null;
-  const projectRoot = path.join(__dirname, '..');
-  const body = (req.body || {}) as { job?: { mode?: string; url?: string; values?: Record<string, unknown> }; url?: string };
-  const job = body.job;
-  const url = typeof body.url === 'string' ? body.url : undefined;
+  const body = (req.body || {}) as {
+    input?: string;
+    url?: string;
+    model?: string;
+    job?: { mode?: string; url?: string; values?: Record<string, unknown> };
+  };
+  const { input, url, model, job } = body;
+  const hasDedalus = !!process.env.DEDALUS_API_KEY;
 
+  if (hasDedalus && (input || !job)) {
+    const prompt =
+      typeof input === 'string' && input.trim()
+        ? input.trim()
+        : `Go to ${url || 'https://example.com'} and extract the page title and main text.`;
+    try {
+      broadcast({ type: 'log', payload: 'Running Dedalus agent (LLM + Browser Use MCP)...' });
+      const result = await runDedalusAgent({ input: prompt, model });
+      lastResult = { title: 'Agent', text: result.finalOutput };
+      broadcast({ type: 'result', payload: lastResult });
+      broadcast({ type: 'end', code: 0 });
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      return res.status(500).json({ error: (err as Error).message });
+    }
+  }
+
+  const projectRoot = path.join(__dirname, '..');
   let agentPath: string;
   const env = { ...process.env };
   if (job && job.mode === 'fill_form' && job.url) {
@@ -168,7 +191,7 @@ app.get('/context/:id', (req, res) => {
   res.json(context);
 });
 
-app.post('/pipeline/draft', (req, res) => {
+app.post('/pipeline/draft', async (req, res) => {
   const { assignmentSpec = {}, contextId, context: contextBody, styleProfile } = (req.body || {}) as {
     assignmentSpec?: Record<string, unknown>;
     contextId?: string;
@@ -177,7 +200,7 @@ app.post('/pipeline/draft', (req, res) => {
   };
   const context = contextBody || (contextId ? contextStore.get(contextId) : null) || { pages: [] };
   try {
-    const { draft } = generateDraft(
+    const { draft } = await generateDraft(
       assignmentSpec as import('./pipeline').AssignmentSpec,
       context,
       styleProfile ?? null
