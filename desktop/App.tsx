@@ -62,7 +62,7 @@ export default function App() {
 						/>
 						{/* Electron Playwright Results Section */}
 						{(logs.length > 0 || result.title) && (
-							<div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
+							<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 								<div className="rounded-xl border border-border bg-card p-4 shadow-sm flex flex-col h-64">
 									<h2 className="text-sm font-semibold text-foreground mb-4">
 										Live Execution Logs
