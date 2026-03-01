@@ -189,3 +189,4 @@ Connect to `ws://localhost:3000` (same host as HTTP).
 | PORT             | Server port (default 3000)                                 |
 | DEDALUS_API_KEY  | Required for Dedalus path. Get from [dashboard](https://www.dedaluslabs.ai/dashboard/api-keys). |
 | DEDALUS_MODEL    | Model override (default `anthropic/claude-sonnet-4`)       |
+| CONVEX_URL       | Convex deployment URL for persistent context store. Set automatically when you run `npm run dev:server` (Convex writes `.env.local`). Also derived from `CONVEX_DEPLOYMENT` if set. Without either, context is stored in-memory only. |

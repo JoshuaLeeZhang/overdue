@@ -5,10 +5,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import * as gdrive from '../integrations/gdrive';
-import * as o365 from '../integrations/o365';
-import { getWritingStyleProfile } from '../lib/writing-style';
-import type { WritingStyleProfile } from '../lib/writing-style';
+import * as gdrive from '../integrations/gdrive.js';
+import * as o365 from '../integrations/o365.js';
+import { getWritingStyleProfile } from '../lib/writing-style.js';
+import type { WritingStyleProfile } from '../lib/writing-style.js';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
 const POLL_INTERVAL_MS = 500;

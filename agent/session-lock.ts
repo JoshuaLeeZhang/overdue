@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Persistent profile dir; lock file lives inside it
 export const userDataDir = path.join(__dirname, '..', '.browser-profile');
 const lockPath = path.join(userDataDir, '.session.lock');

@@ -1,6 +1,6 @@
 import { chromium } from 'playwright';
-import { userDataDir, acquireLock, releaseLock } from './session-lock';
-import { getAgentUrl } from '../lib/agent-url';
+import { userDataDir, acquireLock, releaseLock } from './session-lock.js';
+import { getAgentUrl } from '../lib/agent-url.js';
 
 export interface RunAgentOptions {
   log?: (msg: string) => void;

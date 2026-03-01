@@ -1,11 +1,18 @@
+import 'dotenv/config';
+import { config } from 'dotenv';
+config({ path: '.env.local' }); // Convex and other overrides
 import express from 'express';
 import { createServer } from 'http';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws';
-import { generateDraft } from './pipeline';
-import { runDedalusAgent } from './dedalus-runner';
-import { runAgent } from '../agent/agent';
+import { generateDraft } from './pipeline.js';
+import { runDedalusAgent } from './dedalus-runner.js';
+import { runAgent } from '../agent/agent.js';
+import { getContextStore } from './context-store.js';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -14,8 +21,6 @@ const server = createServer(app);
 const wss = new WebSocketServer({ server });
 const clients = new Set<import('ws').WebSocket>();
 let lastResult: { title?: string; text?: string } | null = null;
-const contextStore = new Map<string, { pages?: { url: string; title: string; text: string }[] }>();
-let contextIdCounter = 0;
 
 wss.on('connection', (ws) => {
   clients.add(ws);
@@ -207,16 +212,17 @@ app.post('/scrape', async (req, res) => {
   }
   try {
     const context = await runScraper(urls);
-    const contextId = `ctx_${++contextIdCounter}`;
-    contextStore.set(contextId, context);
+    const store = await getContextStore();
+    const contextId = await store.set(context);
     res.json({ contextId, context });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
 });
 
-app.get('/context/:id', (req, res) => {
-  const context = contextStore.get(req.params.id);
+app.get('/context/:id', async (req, res) => {
+  const store = await getContextStore();
+  const context = await store.get(req.params.id);
   if (!context) return res.status(404).json({ error: 'Context not found' });
   res.json(context);
 });
@@ -228,7 +234,8 @@ app.post('/pipeline/draft', async (req, res) => {
     context?: { pages?: { url: string; title: string; text: string }[] };
     styleProfile?: import('../lib/writing-style').WritingStyleProfile | null;
   };
-  const context = contextBody || (contextId ? contextStore.get(contextId) : null) || { pages: [] };
+  const store = await getContextStore();
+  const context = contextBody || (contextId ? await store.get(contextId) : null) || { pages: [] };
   try {
     const { draft } = await generateDraft(
       assignmentSpec as import('./pipeline').AssignmentSpec,
