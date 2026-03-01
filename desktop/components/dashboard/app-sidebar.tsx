@@ -8,7 +8,6 @@ import {
   Bot,
   Settings,
   Bell,
-  Search,
   GraduationCap,
 } from "lucide-react"
 
@@ -37,7 +36,6 @@ const mainNav = [
 
 const secondaryNav = [
   { title: "Notifications", icon: Bell, badge: "2" },
-  { title: "Search", icon: Search },
   { title: "Settings", icon: Settings },
 ]
 
@@ -51,7 +49,7 @@ export function AppSidebar() {
               <div className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
                 <GraduationCap className="size-4" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col gap-0.5 leading-none">
                 <span className="text-sm font-semibold tracking-tight">Overdue</span>
                 <span className="text-xs text-muted-foreground">Web Agent</span>
               </div>
