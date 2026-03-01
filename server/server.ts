@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { WebSocketServer } from 'ws';
 import { generateDraft } from './pipeline';
 import { runDedalusAgent } from './dedalus-runner';
+import { runAgent } from '../agent/agent';
 
 const PORT = process.env.PORT || 3000;
 const app = express();
@@ -69,61 +70,72 @@ app.post('/run-agent', async (req, res) => {
   }
 
   const projectRoot = path.join(__dirname, '..');
-  let agentPath: string;
-  const env = { ...process.env };
+
+  // fill_form jobs still run in a subprocess (different script)
   if (job && job.mode === 'fill_form' && job.url) {
-    agentPath = path.join(projectRoot, 'agent', 'fill-form.js');
-    env.AGENT_JOB = JSON.stringify({ mode: 'fill_form', url: job.url, values: job.values || {} });
-  } else {
-    agentPath = path.join(projectRoot, 'agent', 'agent.js');
-    if (url) env.AGENT_URL = url;
-  }
-
-  const child = spawn('node', [agentPath], {
-    cwd: projectRoot,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env,
-  });
-
-  let buffer = '';
-  function processLine(line: string): void {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    try {
-      const parsed = JSON.parse(trimmed) as { result?: unknown };
-      if (parsed.result != null) {
-        lastResult = parsed.result as { title?: string; text?: string };
-        broadcast({ type: 'result', payload: parsed.result });
-        return;
+    const agentPath = path.join(projectRoot, 'agent', 'fill-form.js');
+    const env = {
+      ...process.env,
+      AGENT_JOB: JSON.stringify({ mode: 'fill_form', url: job.url, values: job.values || {} }),
+    };
+    const child = spawn('node', [agentPath], {
+      cwd: projectRoot,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    });
+    let buffer = '';
+    function processLine(line: string): void {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      try {
+        const parsed = JSON.parse(trimmed) as { result?: unknown };
+        if (parsed.result != null) {
+          lastResult = parsed.result as { title?: string; text?: string };
+          broadcast({ type: 'result', payload: parsed.result });
+          return;
+        }
+      } catch {
+        // not JSON
       }
-    } catch {
-      // not JSON
+      broadcast({ type: 'log', payload: trimmed });
     }
-    broadcast({ type: 'log', payload: trimmed });
+    child.stdout?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    });
+    child.stderr?.setEncoding('utf8');
+    child.stderr?.on('data', (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      lines.forEach(processLine);
+    });
+    child.on('close', (code) => {
+      if (buffer.trim()) processLine(buffer);
+      broadcast({ type: 'end', code });
+    });
+    return res.status(202).json({ ok: true, message: 'Agent started' });
   }
 
-  child.stdout?.setEncoding('utf8');
-  child.stdout?.on('data', (chunk: string) => {
-    buffer += chunk;
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    lines.forEach(processLine);
-  });
-
-  child.stderr?.setEncoding('utf8');
-  child.stderr?.on('data', (chunk: string) => {
-    buffer += chunk;
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    lines.forEach(processLine);
-  });
-
-  child.on('close', (code) => {
-    if (buffer.trim()) processLine(buffer);
-    broadcast({ type: 'end', code });
-  });
-
+  // Simple extract: run agent in the same process
   res.status(202).json({ ok: true, message: 'Agent started' });
+  (async () => {
+    try {
+      const result = await runAgent({
+        log: (msg) => broadcast({ type: 'log', payload: msg }),
+        ...(url && { url }),
+      });
+      lastResult = result;
+      broadcast({ type: 'result', payload: result });
+      broadcast({ type: 'end', code: 0 });
+    } catch (err) {
+      broadcast({ type: 'log', payload: String(err) });
+      broadcast({ type: 'end', code: 1 });
+    }
+  })();
 });
 
 function runScraper(urls: string[]): Promise<{ pages: { url: string; title: string; text: string }[] }> {
