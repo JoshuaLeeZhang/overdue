@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { userDataDir, acquireLock, releaseLock } from './session-lock';
 
-const DEFAULT_URL = 'https://example.com';
+const DEFAULT_URL = 'https://learn.uwaterloo.ca';
 const URL = process.env.AGENT_URL || DEFAULT_URL;
 
 async function run(): Promise<void> {

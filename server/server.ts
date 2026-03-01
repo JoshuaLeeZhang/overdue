@@ -55,7 +55,7 @@ app.post('/run-agent', async (req, res) => {
     const prompt =
       typeof input === 'string' && input.trim()
         ? input.trim()
-        : `Go to ${url || 'https://example.com'} and extract the page title and main text.`;
+        : `Go to ${url || 'https://learn.uwaterloo.ca'} and extract the page title and main text.`;
     try {
       broadcast({ type: 'log', payload: 'Running Dedalus agent (LLM + Browser Use MCP)...' });
       const result = await runDedalusAgent({ input: prompt, model });
@@ -126,14 +126,20 @@ app.post('/run-agent', async (req, res) => {
   res.status(202).json({ ok: true, message: 'Agent started' });
 });
 
+const projectRoot = path.join(__dirname, '..');
+const browserProfilePath = path.join(process.cwd(), '.browser-profile');
+
 function runScraper(urls: string[]): Promise<{ pages: { url: string; title: string; text: string }[] }> {
   return new Promise((resolve, reject) => {
-    const projectRoot = path.join(__dirname, '..');
     const scraperPath = path.join(projectRoot, 'agent', 'scraper.js');
     const child = spawn('node', [scraperPath], {
       cwd: projectRoot,
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, AGENT_JOB: JSON.stringify({ mode: 'scrape', urls }) },
+      env: {
+        ...process.env,
+        AGENT_JOB: JSON.stringify({ mode: 'scrape', urls }),
+        BROWSER_PROFILE_PATH: browserProfilePath,
+      },
     });
     let buffer = '';
     let result: { pages: { url: string; title: string; text: string }[] } | null = null;
@@ -170,6 +176,17 @@ function runScraper(urls: string[]): Promise<{ pages: { url: string; title: stri
     });
   });
 }
+
+app.post('/scraper/login', (_req, res) => {
+  const loginPath = path.join(projectRoot, 'agent', 'login.js');
+  spawn('node', [loginPath], {
+    cwd: projectRoot,
+    stdio: 'inherit',
+    env: { ...process.env, BROWSER_PROFILE_PATH: browserProfilePath },
+    detached: true,
+  }).unref();
+  res.status(202).json({ ok: true, message: 'Login browser opened for learn.uwaterloo.ca. Log in, then close the window when done.' });
+});
 
 app.post('/scrape', async (req, res) => {
   const urls = req.body && Array.isArray(req.body.urls) ? (req.body.urls as string[]) : [];

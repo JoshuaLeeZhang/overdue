@@ -50,7 +50,7 @@ async function main(): Promise<void> {
     {
       description: 'Run the Playwright agent to extract the page title and main text from a URL. Opens a visible Chromium window.',
       inputSchema: {
-        url: z.string().url().optional().describe('URL to open (default: https://example.com)'),
+        url: z.string().url().optional().describe('URL to open (default: https://learn.uwaterloo.ca)'),
       },
     },
     async ({ url }: { url?: string }) => {

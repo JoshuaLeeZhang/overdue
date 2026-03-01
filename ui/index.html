@@ -43,8 +43,9 @@
 <body>
   <h1>Desktop Agent</h1>
   <p>
-    <input type="text" id="agent-input" placeholder="e.g. Go to example.com and extract the page (optional)" style="width: 100%; max-width: 500px; padding: 0.4rem; margin-right: 0.5rem;" />
+    <input type="text" id="agent-input" placeholder="e.g. Go to learn.uwaterloo.ca and extract the page (optional)" style="width: 100%; max-width: 500px; padding: 0.4rem; margin-right: 0.5rem;" />
     <button id="run">Run agent</button>
+    <button id="login">Login to LEARN</button>
   </p>
   <div id="logs"></div>
   <div id="result">
@@ -105,6 +106,13 @@
             logsEl.textContent += 'Done.\n';
           } else logsEl.textContent += 'Agent started.\n';
         })
+        .catch((err) => { logsEl.textContent += 'Error: ' + err.message + '\n'; });
+    };
+
+    document.getElementById('login').onclick = () => {
+      fetch('/scraper/login', { method: 'POST' })
+        .then((r) => r.json())
+        .then((d) => { logsEl.textContent += (d.message || 'Login browser opened.') + '\n'; })
         .catch((err) => { logsEl.textContent += 'Error: ' + err.message + '\n'; });
     };
   </script>

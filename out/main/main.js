@@ -59,7 +59,7 @@ electron.ipcMain.on("agent:start", async (event) => {
     const context = await browser.newContext();
     const page = await context.newPage();
     log("Navigating to URL");
-    await page.goto("https://example.com");
+    await page.goto("https://learn.uwaterloo.ca");
     log("Extracting content");
     const title = await page.title();
     const text = await page.evaluate(() => document.body.innerText.trim());

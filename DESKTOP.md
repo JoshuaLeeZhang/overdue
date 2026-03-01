@@ -21,7 +21,7 @@ npx playwright install chromium
    npm run electron
    ```
 
-3. In the app window, click **Run agent**. A visible Chromium window opens, navigates to example.com, and logs stream in the UI. When done, the extracted title and page text appear below.
+3. In the app window, click **Run agent**. A visible Chromium window opens, navigates to learn.uwaterloo.ca, and logs stream in the UI. When done, the extracted title and page text appear below.
 
 ## MCP server (optional)
 
