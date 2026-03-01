@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { AgentState } from "../../App";
+import type { AgentState } from "@/App";
 
 import {
 	Sidebar,
@@ -28,15 +28,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 	SidebarSeparator,
-	SidebarTrigger,
 } from "../ui/sidebar";
-
-const mainNav = [
-	{ title: "Dashboard", icon: LayoutDashboard, isActive: true },
-	{ title: "Pipeline", icon: ListTodo, badge: "3" },
-	{ title: "Deadlines", icon: CalendarClock, badge: "5" },
-	{ title: "Courses", icon: BookOpen },
-];
 
 const secondaryNav = [
 	{ title: "Settings", icon: Settings },
@@ -46,11 +38,26 @@ interface AppSidebarProps {
 	activePage: string;
 	onPageChange: (page: string) => void;
 	agentState: AgentState;
+	activeTaskCount: number;
+	deadlineCount: number;
 }
 
-export function AppSidebar({ activePage, onPageChange, agentState }: AppSidebarProps) {
+export function AppSidebar({ 
+	activePage, 
+	onPageChange, 
+	agentState,
+	activeTaskCount,
+	deadlineCount
+}: AppSidebarProps) {
 	const isAgentRunning = agentState === "running" || agentState === "starting";
 	
+	const dynamicMainNav = [
+		{ title: "Dashboard", icon: LayoutDashboard },
+		{ title: "Pipeline", icon: ListTodo, badge: activeTaskCount > 0 ? activeTaskCount.toString() : undefined },
+		{ title: "Deadlines", icon: CalendarClock, badge: deadlineCount > 0 ? deadlineCount.toString() : undefined },
+		{ title: "Courses", icon: BookOpen },
+	];
+
 	return (
 		<Sidebar collapsible="icon" className="border-r border-sidebar-border">
 			<SidebarHeader className="p-4">
@@ -83,7 +90,7 @@ export function AppSidebar({ activePage, onPageChange, agentState }: AppSidebarP
 					<SidebarGroupLabel>Navigation</SidebarGroupLabel>
 					<SidebarGroupContent>
 						<SidebarMenu>
-							{mainNav.map((item) => (
+							{dynamicMainNav.map((item) => (
 								<SidebarMenuItem key={item.title}>
 									<SidebarMenuButton
 										isActive={activePage === item.title}

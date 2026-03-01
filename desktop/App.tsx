@@ -7,6 +7,7 @@ import { PipelineView } from "@/components/dashboard/pipeline-view";
 import { AgentActivity } from "@/components/dashboard/agent-activity";
 import { CourseOverview } from "@/components/dashboard/course-overview";
 import { AgentControl } from "@/components/dashboard/agent-control";
+import { tasks, upcomingDeadlines, type PipelineTask } from "@/lib/tasks-data";
 
 export type AgentState = "idle" | "starting" | "running" | "stopping";
 
@@ -132,12 +133,17 @@ export default function App() {
 		}
 	};
 
+	const activeTaskCount = tasks.filter((t: PipelineTask) => t.status === "processing" || t.status === "urgent").length;
+	const deadlineCount = upcomingDeadlines.length;
+
 	return (
 		<SidebarProvider>
 			<AppSidebar 
 				activePage={activePage} 
 				onPageChange={setActivePage} 
-				agentState={agentState} 
+				agentState={agentState}
+				activeTaskCount={activeTaskCount}
+				deadlineCount={deadlineCount}
 			/>
 			<SidebarInset>
 				<DashboardHeader onSearch={handleSearch} />

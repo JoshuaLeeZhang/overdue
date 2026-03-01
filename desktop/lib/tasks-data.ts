@@ -66,6 +66,99 @@ export const tasks: PipelineTask[] = [
 	},
 ];
 
+export type Course = {
+	name: string;
+	code: string;
+	progress: number;
+	assignmentsDone: number;
+	assignmentsTotal: number;
+};
+
+export const courses: Course[] = [
+	{
+		name: "Intro to Psychology",
+		code: "PSY 101",
+		progress: 72,
+		assignmentsDone: 18,
+		assignmentsTotal: 25,
+	},
+	{
+		name: "Organic Chemistry",
+		code: "CHEM 201",
+		progress: 58,
+		assignmentsDone: 14,
+		assignmentsTotal: 24,
+	},
+	{
+		name: "American History",
+		code: "HIST 150",
+		progress: 80,
+		assignmentsDone: 20,
+		assignmentsTotal: 25,
+	},
+	{
+		name: "Creative Writing II",
+		code: "ENG 202",
+		progress: 65,
+		assignmentsDone: 13,
+		assignmentsTotal: 20,
+	},
+	{
+		name: "Linear Algebra",
+		code: "MATH 260",
+		progress: 44,
+		assignmentsDone: 11,
+		assignmentsTotal: 25,
+	},
+	{
+		name: "Intro to CS",
+		code: "CS 110",
+		progress: 88,
+		assignmentsDone: 22,
+		assignmentsTotal: 25,
+	},
+];
+
+export type Deadline = {
+	title: string;
+	course: string;
+	due: string;
+	urgent: boolean;
+};
+
+export const upcomingDeadlines: Deadline[] = [
+	{
+		title: "Homework Set #7",
+		course: "MATH 260",
+		due: "Today 6:00 PM",
+		urgent: true,
+	},
+	{
+		title: "Discussion Board Post #8",
+		course: "PSY 101",
+		due: "Today 11:59 PM",
+		urgent: true,
+	},
+	{
+		title: "Lab Report Review",
+		course: "CHEM 201",
+		due: "Tomorrow 5:00 PM",
+		urgent: false,
+	},
+	{
+		title: "Reading Quiz Ch. 12",
+		course: "HIST 150",
+		due: "Mar 2",
+		urgent: false,
+	},
+	{
+		title: "Peer Review Draft",
+		course: "ENG 202",
+		due: "Mar 3",
+		urgent: false,
+	},
+];
+
 export function searchTasks(query: string): PipelineTask[] {
 	if (!query.trim()) return [];
 	const q = query.toLowerCase();

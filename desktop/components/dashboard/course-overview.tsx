@@ -3,59 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Progress } from "../ui/progress";
 import { BookOpen } from "lucide-react";
-
-type Course = {
-	name: string;
-	code: string;
-	progress: number;
-	assignmentsDone: number;
-	assignmentsTotal: number;
-};
-
-const courses: Course[] = [
-	{
-		name: "Intro to Psychology",
-		code: "PSY 101",
-		progress: 72,
-		assignmentsDone: 18,
-		assignmentsTotal: 25,
-	},
-	{
-		name: "Organic Chemistry",
-		code: "CHEM 201",
-		progress: 58,
-		assignmentsDone: 14,
-		assignmentsTotal: 24,
-	},
-	{
-		name: "American History",
-		code: "HIST 150",
-		progress: 80,
-		assignmentsDone: 20,
-		assignmentsTotal: 25,
-	},
-	{
-		name: "Creative Writing II",
-		code: "ENG 202",
-		progress: 65,
-		assignmentsDone: 13,
-		assignmentsTotal: 20,
-	},
-	{
-		name: "Linear Algebra",
-		code: "MATH 260",
-		progress: 44,
-		assignmentsDone: 11,
-		assignmentsTotal: 25,
-	},
-	{
-		name: "Intro to CS",
-		code: "CS 110",
-		progress: 88,
-		assignmentsDone: 22,
-		assignmentsTotal: 25,
-	},
-];
+import { courses, type Course } from "@/lib/tasks-data";
 
 export function CourseOverview({ 
 	searchQuery = "",
@@ -64,7 +12,7 @@ export function CourseOverview({
 	searchQuery?: string;
 	variant?: "card" | "page";
 }) {
-	const filtered = courses.filter((course) => {
+	const filtered = courses.filter((course: Course) => {
 		if (!searchQuery) return true;
 		const q = searchQuery.toLowerCase();
 		return course.name.toLowerCase().includes(q) || course.code.toLowerCase().includes(q);

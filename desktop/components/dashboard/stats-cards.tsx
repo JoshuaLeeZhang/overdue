@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { cn } from "@/lib/utils";
+import { upcomingDeadlines, type Deadline } from "@/lib/tasks-data";
 
 type StatCard = {
 	title: string;
@@ -102,39 +103,6 @@ export function StatsCards({ searchQuery = "" }: { searchQuery?: string }) {
 	);
 }
 
-const upcomingDeadlines = [
-	{
-		title: "Homework Set #7",
-		course: "MATH 260",
-		due: "Today 6:00 PM",
-		urgent: true,
-	},
-	{
-		title: "Discussion Board Post #8",
-		course: "PSY 101",
-		due: "Today 11:59 PM",
-		urgent: true,
-	},
-	{
-		title: "Lab Report Review",
-		course: "CHEM 201",
-		due: "Tomorrow 5:00 PM",
-		urgent: false,
-	},
-	{
-		title: "Reading Quiz Ch. 12",
-		course: "HIST 150",
-		due: "Mar 2",
-		urgent: false,
-	},
-	{
-		title: "Peer Review Draft",
-		course: "ENG 202",
-		due: "Mar 3",
-		urgent: false,
-	},
-];
-
 export function DeadlinesList({ 
 	searchQuery = "", 
 	variant = "card" 
@@ -142,7 +110,7 @@ export function DeadlinesList({
 	searchQuery?: string;
 	variant?: "card" | "page";
 }) {
-	const filtered = upcomingDeadlines.filter((item) => {
+	const filtered = upcomingDeadlines.filter((item: Deadline) => {
 		if (!searchQuery) return true;
 		const q = searchQuery.toLowerCase();
 		return (
@@ -159,7 +127,7 @@ export function DeadlinesList({
 					No deadlines match &ldquo;{searchQuery}&rdquo;
 				</p>
 			) : (
-				filtered.map((item, i) => (
+				filtered.map((item: Deadline, i: number) => (
 					<div
 						key={i}
 						className={cn(
