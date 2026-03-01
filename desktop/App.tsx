@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/dashboard/app-sidebar'
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
@@ -6,37 +6,19 @@ import { StatsCards, DeadlinesList } from '@/components/dashboard/stats-cards'
 import { PipelineView } from '@/components/dashboard/pipeline-view'
 import { AgentActivity } from '@/components/dashboard/agent-activity'
 import { CourseOverview } from '@/components/dashboard/course-overview'
-import { Button } from '@/components/ui/button'
-
-const { ipcRenderer } = require('electron')
+import { AgentControl } from '@/components/dashboard/agent-control'
 
 export default function App() {
   const [logs, setLogs] = useState<string[]>([])
   const [result, setResult] = useState<{title?: string, text?: string}>({})
 
-  useEffect(() => {
-    const handleLog = (_event: any, message: string) => {
-      setLogs((prevLogs) => [...prevLogs, message])
-    }
-    const handleResult = (_event: any, data: any) => {
-      setResult(data)
-    }
-
-    ipcRenderer.on('agent:log', handleLog)
-    ipcRenderer.on('agent:result', handleResult)
-
-    return () => {
-      ipcRenderer.removeListener('agent:log', handleLog)
-      ipcRenderer.removeListener('agent:result', handleResult)
-    }
+  const handleLogs = useCallback((newLogs: string[]) => {
+    setLogs((prev) => [...prev, ...newLogs])
   }, [])
 
-  const startAgent = () => {
-    setLogs([])
-    setResult({})
-    ipcRenderer.send('agent:start')
-  }
-
+  const handleResult = useCallback((data: {title?: string, text?: string}) => {
+    setResult(data)
+  }, [])
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -44,14 +26,11 @@ export default function App() {
         <DashboardHeader />
         <div className="flex-1 overflow-y-auto bg-background">
           <div className="flex flex-col gap-6 p-6">
-            
-            <div className="flex justify-between items-end">
-               <StatsCards />
-               <Button onClick={startAgent} className="h-full ml-4 whitespace-nowrap px-8 shadow-md">
-                 Start Playwright Agent
-               </Button>
-            </div>
 
+        
+
+            <StatsCards />
+    <AgentControl onLogs={handleLogs} onResult={handleResult} />
             {/* Electron Playwright Results Section */}
             {(logs.length > 0 || result.title) && (
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 mb-6">
