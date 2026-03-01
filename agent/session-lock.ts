@@ -5,7 +5,10 @@ import path from "path";
 export const userDataDir =
 	process.env.BROWSER_PROFILE_PATH ||
 	path.join(process.cwd(), ".browser-profile");
-const lockPath = path.join(userDataDir, ".session.lock");
+
+function getLockPath(dir?: string): string {
+	return path.join(dir ?? userDataDir, ".session.lock");
+}
 
 function isProcessAlive(pid: number): boolean {
 	try {
@@ -16,8 +19,21 @@ function isProcessAlive(pid: number): boolean {
 	}
 }
 
-export async function acquireLock(): Promise<void> {
-	await fs.promises.mkdir(userDataDir, { recursive: true });
+/** Remove stale Chromium SingletonLock after crashes (avoids "Failed to create ProcessSingleton") */
+export function clearStaleChromiumLocks(profileDir?: string): void {
+	const dir = profileDir ?? userDataDir;
+	const singletonLock = path.join(dir, "SingletonLock");
+	try {
+		fs.unlinkSync(singletonLock);
+	} catch {
+		// ENOENT or in use — ignore
+	}
+}
+
+export async function acquireLock(profileDir?: string): Promise<void> {
+	const dir = profileDir ?? userDataDir;
+	const lockPath = getLockPath(dir);
+	await fs.promises.mkdir(dir, { recursive: true });
 	try {
 		const raw = await fs.promises.readFile(lockPath, "utf8");
 		const { pid, startedAt } = JSON.parse(raw) as {
@@ -43,7 +59,8 @@ export async function acquireLock(): Promise<void> {
 	);
 }
 
-export async function releaseLock(): Promise<void> {
+export async function releaseLock(profileDir?: string): Promise<void> {
+	const lockPath = getLockPath(profileDir ?? userDataDir);
 	try {
 		await fs.promises.unlink(lockPath);
 	} catch (err) {

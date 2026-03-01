@@ -1,12 +1,12 @@
 /**
- * Playwright-based scraper: visits each URL, extracts title and body text.
- * Uses persistent browser profile only for learn.uwaterloo.ca (the only site requiring login).
- * With traverse: true, follows links from the first page to scrape assignment subpages.
+ * Scraper: uses browser-use Agent when LLM keys are available, otherwise Playwright.
  * Reads AGENT_JOB from env: JSON with { mode: "scrape", urls: string[], traverse?: boolean }.
  * Outputs one JSON line: { result: { context: { pages: [{ url, title, text }] } } }
  */
+import "dotenv/config";
 import path from "path";
 import { chromium } from "playwright";
+import { runScrapeAgent } from "./agent.js";
 
 const LEARN_HOST = "learn.uwaterloo.ca";
 const MAX_TRAVERSE_LINKS = 25;
@@ -25,6 +25,16 @@ const traverse = !!job.traverse;
 const userDataDir =
 	process.env.BROWSER_PROFILE_PATH ||
 	path.join(process.cwd(), ".browser-profile");
+
+function hasLLMKey(): boolean {
+	return !!(
+		process.env.BROWSER_USE_API_KEY ||
+		process.env.OPENAI_API_KEY ||
+		process.env.ANTHROPIC_API_KEY ||
+		process.env.GOOGLE_API_KEY ||
+		process.env.BASETEN_API_KEY
+	);
+}
 
 function needsLogin(urlsToCheck: string[]): boolean {
 	return urlsToCheck.some((u) => u.includes(LEARN_HOST));
@@ -77,23 +87,24 @@ async function extractLinks(
 		.slice(0, MAX_TRAVERSE_LINKS);
 }
 
-async function run(): Promise<void> {
+async function runPlaywrightScraper(): Promise<void> {
 	let urlsToScrape = [...urls];
 	if (traverse && urls.length > 0) {
-		const first = urls[0];
-		urlsToScrape = [first];
+		urlsToScrape = [urls[0]];
 	}
 
 	const useProfile = needsLogin(urlsToScrape);
 	console.log(
-		"Launching browser",
+		"Launching browser (Playwright)",
 		useProfile ? "(persistent profile for LEARN)" : "(ephemeral)",
 		traverse ? "(traverse mode)" : "",
 	);
 
 	let browser: import("playwright").Browser | null = null;
 	const context = useProfile
-		? await chromium.launchPersistentContext(userDataDir, { headless: true })
+		? await chromium.launchPersistentContext(userDataDir, {
+				headless: true,
+			})
 		: await (browser = await chromium.launch({ headless: true })).newContext();
 
 	const pages: { url: string; title: string; text: string }[] = [];
@@ -172,6 +183,36 @@ async function run(): Promise<void> {
 	} finally {
 		await context.close();
 		if (browser) await browser.close();
+	}
+}
+
+async function runBrowserUseScraper(): Promise<void> {
+	console.log("Launching browser-use agent (AI-driven scrape)");
+	try {
+		const result = await runScrapeAgent({
+			urls,
+			traverse,
+			log: (msg) => console.log(msg),
+			userDataDir,
+		});
+		console.log("Done");
+		console.log(JSON.stringify({ result: { context: { pages: result.pages } } }));
+	} catch (err) {
+		console.error("Browser-use scrape failed, falling back to Playwright:", err);
+		await runPlaywrightScraper();
+	}
+}
+
+async function run(): Promise<void> {
+	if (urls.length === 0) {
+		console.error("No URLs in AGENT_JOB");
+		process.exit(1);
+	}
+
+	if (hasLLMKey()) {
+		await runBrowserUseScraper();
+	} else {
+		await runPlaywrightScraper();
 	}
 }
 

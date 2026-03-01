@@ -77,9 +77,7 @@ app.post("/run-agent", async (req, res) => {
 		}
 	}
 
-	const projectRoot = path.join(__dirname, "..");
-
-	// fill_form jobs still run in a subprocess (different script)
+	// fill_form jobs run in subprocess (browser-use or Playwright)
 	if (job && job.mode === "fill_form" && job.url) {
 		const agentPath = path.join(projectRoot, "agent", "fill-form.js");
 		const env = {
@@ -89,6 +87,7 @@ app.post("/run-agent", async (req, res) => {
 				url: job.url,
 				values: job.values || {},
 			}),
+			BROWSER_PROFILE_PATH: browserProfilePath,
 		};
 		const child = spawn("node", [agentPath], {
 			cwd: projectRoot,
@@ -132,13 +131,21 @@ app.post("/run-agent", async (req, res) => {
 		return res.status(202).json({ ok: true, message: "Agent started" });
 	}
 
-	// Simple extract: run agent in the same process
+	// Browser-use agent: LLM-driven autonomous browser control
 	res.status(202).json({ ok: true, message: "Agent started" });
 	(async () => {
 		try {
+			broadcast({ type: "log", payload: "Running browser-use agent..." });
+			const task =
+				typeof input === "string" && input.trim()
+					? input.trim()
+					: undefined;
 			const result = await runAgent({
 				log: (msg) => broadcast({ type: "log", payload: msg }),
 				...(url && { url }),
+				...(model && { model }),
+				...(task && { task }),
+				userDataDir: browserProfilePath,
 			});
 			lastResult = result;
 			broadcast({ type: "result", payload: result });

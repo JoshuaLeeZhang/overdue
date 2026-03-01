@@ -5,6 +5,7 @@
 	"type": "module",
 	"main": "out/main/main.js",
 	"scripts": {
+		"postinstall": "node scripts/patch-browser-use-prompts.js",
 		"dev": "electron-vite dev",
 		"build": "electron-vite build && tsc",
 		"server": "node dist/server/server.js",
