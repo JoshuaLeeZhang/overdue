@@ -12,3 +12,6 @@ __pycache__
 
 # Node
 node_modules
+
+# Persistent browser profile (cookies, logins) — keep local only
+.browser-profile
