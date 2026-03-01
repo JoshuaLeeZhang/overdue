@@ -3,11 +3,12 @@ import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    entry: 'desktop/main.ts',
+    build: {
+      lib: {
+        entry: resolve(__dirname, 'desktop/main.ts')
+      }
+    },
     plugins: [externalizeDepsPlugin()]
-  },
-  preload: {
-    // We are skipping preload to keep IPC complexity low
   },
   renderer: {
     root: 'desktop',
