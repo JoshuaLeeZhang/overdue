@@ -34,9 +34,11 @@ export const memoryStore: ContextStore = {
 function getConvexUrl(): string | null {
 	const url = process.env.CONVEX_URL;
 	if (url) return url;
-	// Convex dev writes CONVEX_DEPLOYMENT (e.g. "dev:anxious-animal-123"); derive URL
 	const deployment = process.env.CONVEX_DEPLOYMENT;
 	if (deployment) {
+		if (deployment.startsWith("anonymous:")) {
+			return process.env.VITE_CONVEX_URL || "http://127.0.0.1:3210";
+		}
 		const name = deployment.replace(/^(dev|production):/, "");
 		return `https://${name}.convex.cloud`;
 	}

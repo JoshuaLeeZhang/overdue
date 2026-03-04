@@ -10,6 +10,6 @@
 
 const { anyApi } = require("convex/server");
 module.exports = {
-	api: anyApi,
-	internal: anyApi,
+  api: anyApi,
+  internal: anyApi,
 };

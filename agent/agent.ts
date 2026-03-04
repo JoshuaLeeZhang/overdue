@@ -10,14 +10,7 @@ import { ChatOpenAI } from "browser-use/llm/openai";
 import { ChatAnthropic } from "browser-use/llm/anthropic";
 import { ChatGoogle } from "browser-use/llm/google";
 import { ChatBrowserUse } from "browser-use/llm/browser-use";
-import type { BaseChatModel, ChatInvokeOptions } from "browser-use";
-import {
-	UserMessage,
-	ContentPartTextParam,
-	ContentPartImageParam,
-} from "browser-use/llm/messages";
-import type { Message } from "browser-use/llm/messages";
-import type { ChatInvokeCompletion } from "browser-use/llm/views";
+import type { BaseChatModel } from "browser-use";
 import {
 	userDataDir,
 	acquireLock,
@@ -25,6 +18,7 @@ import {
 	clearStaleChromiumLocks,
 } from "./session-lock.js";
 import { getAgentUrl } from "../lib/agent-url.js";
+import { getAssignmentsStore } from "../server/assignments-store.js";
 
 export interface RunAgentOptions {
 	log?: (msg: string) => void;
@@ -55,40 +49,6 @@ export interface FillFormResult {
 }
 
 const defaultLog = (msg: string) => console.log(msg);
-
-/** Wraps a ChatOpenAI instance to strip image_url parts (for models that reject them) */
-class ImageStrippingLLM implements BaseChatModel {
-	model: string;
-	private inner: BaseChatModel;
-
-	constructor(inner: BaseChatModel) {
-		this.inner = inner;
-		this.model = inner.model;
-	}
-
-	get provider() { return this.inner.provider; }
-	get name() { return this.inner.name; }
-	get model_name() { return this.inner.model_name; }
-
-	private stripImages(messages: Message[]): Message[] {
-		return messages.map((msg) => {
-			if (msg instanceof UserMessage && Array.isArray(msg.content)) {
-				const filtered = msg.content.filter(
-					(part) => !(part instanceof ContentPartImageParam),
-				);
-				if (filtered.length === 0) {
-					filtered.push(new ContentPartTextParam("[screenshot omitted]"));
-				}
-				return new UserMessage(filtered, msg.name);
-			}
-			return msg;
-		});
-	}
-
-	ainvoke(messages: Message[], output_format?: any, options?: ChatInvokeOptions): Promise<ChatInvokeCompletion<any>> {
-		return this.inner.ainvoke(this.stripImages(messages), output_format, options);
-	}
-}
 
 type LLMProvider =
 	| "browser-use"
@@ -129,17 +89,15 @@ function createLLM(options?: {
 	const tryBaseten = () => {
 		if (!process.env.BASETEN_API_KEY) return null;
 		const m =
-			process.env.BASETEN_MODEL || "zai-org/GLM-5";
+			process.env.BASETEN_MODEL || "deepseek-ai/DeepSeek-V3.1";
 		const baseURL =
 			process.env.BASETEN_API_URL || "https://inference.baseten.co/v1";
 		log(`Using Baseten (${m})`);
-		return new ImageStrippingLLM(
-			new ChatOpenAI({
-				model: m,
-				apiKey: process.env.BASETEN_API_KEY,
-				baseURL,
-			}),
-		);
+		return new ChatOpenAI({
+			model: m,
+			apiKey: process.env.BASETEN_API_KEY,
+			baseURL,
+		});
 	};
 	const tryBrowserUse = () => {
 		if (!process.env.BROWSER_USE_API_KEY) return null;
@@ -158,15 +116,15 @@ function createLLM(options?: {
 				prefer,
 				...(
 					[
-						"browser-use",
+						"baseten",
 						"openai",
 						"anthropic",
 						"google",
-						"baseten",
+						"browser-use",
 					] as LLMProvider[]
 				).filter((p) => p !== prefer),
 			]
-		: ["browser-use", "openai", "anthropic", "google", "baseten"];
+		: ["baseten", "openai", "anthropic", "google", "browser-use"];
 
 	for (const p of order) {
 		const llm =
@@ -224,17 +182,15 @@ function createFallbackLLM(
 		}
 		if (p === "baseten" && process.env.BASETEN_API_KEY) {
 			const m =
-				process.env.BASETEN_MODEL || "zai-org/GLM-5";
+				process.env.BASETEN_MODEL || "deepseek-ai/DeepSeek-V3";
 			const baseURL =
 				process.env.BASETEN_API_URL || "https://inference.baseten.co/v1";
 			log(`Fallback LLM: Baseten (will use if primary fails)`);
-			return new ImageStrippingLLM(
-				new ChatOpenAI({
-					model: m,
-					apiKey: process.env.BASETEN_API_KEY,
-					baseURL,
-				}),
-			);
+			return new ChatOpenAI({
+				model: m,
+				apiKey: process.env.BASETEN_API_KEY,
+				baseURL,
+			});
 		}
 		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY) {
 			log(`Fallback LLM: Browser Use (will use if primary fails)`);
@@ -252,22 +208,22 @@ function createFallbackLLM(
 
 function getPrimaryProvider(): LLMProvider {
 	const order: LLMProvider[] = [
-		"browser-use",
+		"baseten",
 		"openai",
 		"anthropic",
 		"google",
-		"baseten",
+		"browser-use",
 	];
 	for (const p of order) {
-		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY)
-			return "browser-use";
+		if (p === "baseten" && process.env.BASETEN_API_KEY) return "baseten";
 		if (p === "openai" && process.env.OPENAI_API_KEY) return "openai";
 		if (p === "anthropic" && process.env.ANTHROPIC_API_KEY)
 			return "anthropic";
 		if (p === "google" && process.env.GOOGLE_API_KEY) return "google";
-		if (p === "baseten" && process.env.BASETEN_API_KEY) return "baseten";
+		if (p === "browser-use" && process.env.BROWSER_USE_API_KEY)
+			return "browser-use";
 	}
-	return "browser-use";
+	return "baseten";
 }
 
 export async function runAgent(
@@ -276,17 +232,108 @@ export async function runAgent(
 	const log = options?.log ?? defaultLog;
 	const url = options?.url ?? getAgentUrl();
 	const profileDir = options?.userDataDir ?? userDataDir;
+	const origin = url.replace(/\/$/, "");
+
 	const task =
 		options?.task ??
-		`Go to ${url}. If login is required, log in first (the browser profile has saved credentials).
+		`You are a web scraper. Your job is to collect ALL courses, assignments, and quizzes from D2L/LEARN.
 
-Once logged in, do the following:
-1. Go to the homepage and find all courses listed under "Courses and Communities". Click on the current semester tab (e.g. Winter 2026) to see enrolled courses.
-2. For EACH course, click into it and navigate to the Assignments or Dropbox section.
-3. Extract every assignment: name, due date, status (submitted/not submitted), and any description or instructions.
-4. After visiting all courses, output a complete summary of ALL assignments across all courses, organized by course name, including due dates and submission status.
+Go to ${origin}/d2l/home
 
-Be thorough - visit every course and every assignment page. Do not stop after the first course.`;
+═══════════════════════════════════════
+PHASE 0 — AUTHENTICATION
+═══════════════════════════════════════
+If you see a login page (ADFS, SSO, Duo, CAS, or any sign-in form):
+  - Do NOT type any credentials. A human will log in for you.
+  - Call wait(seconds=20), then check the URL.
+  - Repeat until the URL contains "/d2l/home" (meaning you are past login).
+
+═══════════════════════════════════════
+PHASE 1 — DISCOVER ALL COURSES
+═══════════════════════════════════════
+Once on the D2L homepage, you need to find every course listed.
+
+1. Look for a button or link that says "View All Courses" or shows more courses.
+   If you see one, click it and wait 2 seconds.
+2. Scroll down to make sure all courses are visible.
+3. Run this evaluate() to extract every course ID and name from the page:
+
+evaluate("var courses=[],seen=new Set();function walk(el){if(el.shadowRoot){el.shadowRoot.querySelectorAll('a[href*=\\"/d2l/home/\\"]').forEach(function(a){var m=a.href.match(/\\\\/d2l\\\\/home\\\\/(\\\\d{4,})/);if(m&&!seen.has(m[1])){seen.add(m[1]);courses.push({id:m[1],name:(a.textContent||'').trim().substring(0,100)})}});el.shadowRoot.querySelectorAll('*').forEach(walk)}};document.querySelectorAll('a[href*=\\"/d2l/home/\\"]').forEach(function(a){var m=a.href.match(/\\\\/d2l\\\\/home\\\\/(\\\\d{4,})/);if(m&&!seen.has(m[1])){seen.add(m[1]);courses.push({id:m[1],name:(a.textContent||'').trim().substring(0,100)})}});document.querySelectorAll('*').forEach(walk);JSON.stringify(courses)")
+
+This returns a JSON array of {id, name} objects. Save this list — these are ALL the courses you must visit.
+
+If it returns an empty array, scroll down more, wait 2 seconds, and try again. If still empty after 2 attempts, call done("No courses found").
+
+═══════════════════════════════════════
+PHASE 2 — SCRAPE EACH COURSE
+═══════════════════════════════════════
+You MUST visit every single course from the list. For each course:
+
+STEP A — Go to the course homepage:
+  go_to_url("${origin}/d2l/home/{courseId}")
+  Wait for the page to load.
+
+STEP B — Get the course name:
+  Read the page title or header to get the full course name.
+
+STEP C — Navigate to Assignments (Dropbox):
+  Look at the course navigation bar near the top of the page. You are looking for
+  a link or dropdown menu labeled any of these:
+    "Submit", "Assessments", "Activities", "Assignments", "Dropbox"
+  
+  - If you see a dropdown (e.g. "Assessments" or "Activities"), click it to expand,
+    then click "Assignments" or "Dropbox" from the submenu.
+  - If you see a direct link labeled "Assignments" or "Dropbox", click it.
+  - If you cannot find any such link in the navbar, go directly to:
+    go_to_url("${origin}/d2l/lms/dropbox/user/folders_list.d2l?ou={courseId}")
+
+STEP D — Extract assignments from the page:
+  Once on the assignments/dropbox page, run:
+
+  evaluate("var items=[];document.querySelectorAll('tr').forEach(function(row){var cells=row.querySelectorAll('td');if(cells.length>=1){var title=(cells[0]&&cells[0].innerText||'').trim();if(title&&title.length>1&&!/^\\\\s*$/.test(title)){items.push({title:title.substring(0,200),dueDate:(cells[1]&&cells[1].innerText||'').trim(),status:(cells[2]&&cells[2].innerText||'').trim(),score:(cells[3]&&cells[3].innerText||'').trim()})}}});JSON.stringify(items)")
+
+  If the result is empty "[]", look at the visible page content. If you can see assignment
+  names listed on the page (in cards, lists, or any format), read them and note them down.
+
+STEP E — Navigate to Quizzes:
+  Go back to the course: go_to_url("${origin}/d2l/home/{courseId}")
+  Look at the course navbar again for:
+    "Quizzes", "Tests", or under the same "Assessments"/"Submit" dropdown
+  
+  - Click the appropriate link or dropdown item to reach the Quizzes page.
+  - If you cannot find a quizzes link, go directly to:
+    go_to_url("${origin}/d2l/lms/quizzing/user/quizzes_list.d2l?ou={courseId}")
+
+STEP F — Extract quizzes from the page:
+  Once on the quizzes page, run:
+
+  evaluate("var items=[];document.querySelectorAll('tr').forEach(function(row){var cells=row.querySelectorAll('td');if(cells.length>=1){var title=(cells[0]&&cells[0].innerText||'').trim();if(title&&title.length>1&&!/^\\\\s*$/.test(title)){items.push({title:title.substring(0,200),dueDate:(cells[1]&&cells[1].innerText||'').trim(),status:(cells[2]&&cells[2].innerText||'').trim(),score:(cells[3]&&cells[3].innerText||'').trim()})}}});JSON.stringify(items)")
+
+  Same as before — if empty, check the visible page for quiz names.
+
+STEP G — Move to the next course. Repeat Steps A-F for ALL courses.
+
+═══════════════════════════════════════
+PHASE 3 — RETURN RESULTS
+═══════════════════════════════════════
+After visiting every course, compile ALL your collected data into this JSON format
+and call done() with it:
+
+{"courses":[{"id":"123456","name":"CS 101 - Intro to CS","assignments":[{"title":"Assignment 1","dueDate":"Jan 15","status":"Submitted","score":"85/100"}],"quizzes":[{"title":"Quiz 1","dueDate":"Jan 20","status":"Completed","score":"90%"}]}]}
+
+Include ALL courses, even those with empty assignments/quizzes arrays.
+
+═══════════════════════════════════════
+CRITICAL RULES
+═══════════════════════════════════════
+1. Visit EVERY course. Do NOT stop after one or two courses.
+2. NEVER fabricate or guess a URL. Only use the exact patterns shown above with real course IDs.
+3. If a page returns 403 or an error, skip it and move to the next course.
+4. If you cannot find assignments or quizzes for a course, use empty arrays [] and move on.
+5. NEVER type credentials or interact with login forms.
+6. Always replace {courseId} with the actual numeric course ID from your list.
+7. Do NOT call done() until you have visited ALL courses from Phase 1.
+8. Be thorough — even if some courses seem empty, still check them all.`;
 
 	await acquireLock(profileDir);
 	try {
@@ -313,6 +360,8 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 			directly_open_url: true,
 			use_vision: true,
 			use_judge: false,
+			max_failures: 5,
+			max_actions_per_step: 3,
 			register_new_step_callback: (summary, _output, step) => {
 				log(
 					`Step ${step}: ${summary.url || "loading"} - ${summary.title || ""}`,
@@ -321,10 +370,12 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 		});
 
 		try {
-			const history = await agent.run(50);
+			const history = await agent.run(150);
 			const text = history.final_result() ?? "";
 			const lastState = history.history[history.history.length - 1]?.state;
 			const title = lastState?.title ?? "";
+
+			await storeAgentResults(text, log);
 
 			log("Done");
 			return { title, text };
@@ -333,6 +384,90 @@ Be thorough - visit every course and every assignment page. Do not stop after th
 		}
 	} finally {
 		await releaseLock(profileDir);
+	}
+}
+
+interface AgentAssignmentItem {
+	title: string;
+	dueDate?: string;
+	status?: string;
+	score?: string;
+	description?: string;
+	type?: string;
+}
+
+interface AgentCourseOutput {
+	courses?: {
+		name: string;
+		id: string;
+		assignments?: AgentAssignmentItem[];
+		quizzes?: AgentAssignmentItem[];
+	}[];
+}
+
+async function storeAgentResults(
+	text: string,
+	log: (msg: string) => void,
+): Promise<void> {
+	if (!text || text.includes("No next action")) return;
+
+	let parsed: AgentCourseOutput;
+	try {
+		const match = text.match(/\{[\s\S]*\}/);
+		if (!match) return;
+		parsed = JSON.parse(match[0]) as AgentCourseOutput;
+	} catch {
+		log("Could not parse agent output as JSON for storage");
+		return;
+	}
+
+	if (!parsed.courses?.length) return;
+
+	try {
+		const store = await getAssignmentsStore();
+		let totalItems = 0;
+
+		const storeItem = async (
+			course: { id: string; name: string },
+			a: AgentAssignmentItem,
+			type: string,
+		) => {
+			await store.upsertAssignment({
+				courseId: course.id,
+				courseName: course.name,
+				title: `${type === "quiz" ? "[Quiz] " : ""}${a.title}`,
+				dueDate: a.dueDate,
+				status: a.status,
+				description: a.score
+					? `Score: ${a.score}${a.description ? ` — ${a.description}` : ""}`
+					: a.description,
+			});
+			totalItems++;
+		};
+
+		for (const course of parsed.courses) {
+			await store.upsertCourse({
+				courseId: course.id,
+				name: course.name,
+			});
+
+			if (course.assignments) {
+				for (const a of course.assignments) {
+					await storeItem(course, a, a.type ?? "dropbox");
+				}
+			}
+			if (course.quizzes) {
+				for (const q of course.quizzes) {
+					await storeItem(course, q, "quiz");
+				}
+			}
+		}
+
+		log(
+			`Stored ${parsed.courses.length} courses and ${totalItems} items (assignments + quizzes) in database`,
+		);
+	} catch (err) {
+		log(`Failed to store results: ${(err as Error).message}`);
 	}
 }
 
