@@ -4,6 +4,8 @@
 
 The core of this project is building a **real web agent**—software that can navigate learning management systems, interact with course pages, and automate the workflows students repeat every semester. Unlike chatbots or static tools, Overdue operates **proactively** in the background: it observes incoming academic responsibilities, evaluates urgency and complexity, and organizes work into a clear execution pipeline. Let the agent handle the busywork assignments so you can focus on what actually matters.
 
+<img width="1106" height="773" alt="image" src="https://github.com/user-attachments/assets/6b2c4040-af5c-4078-9c3d-9c39d5a51643" />
+
 ---
 
 ## How It Works
