@@ -122,7 +122,7 @@ export function AppSidebar({
 										<span>{item.title}</span>
 									</SidebarMenuButton>
 									{item.badge && (
-										<SidebarMenuBadge>{item.badge}</SidebarMenuBadge>
+										<SidebarMenuBadge className="cursor-pointer">{item.badge}</SidebarMenuBadge>
 									)}
 								</SidebarMenuItem>
 							))}

@@ -59,7 +59,7 @@ export function DashboardHeader({ onSearch }: DashboardHeaderProps) {
 
 	return (
 		<header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
-			<SidebarTrigger className="-ml-1" />
+			<SidebarTrigger className="-ml-1 cursor-pointer" />
 			<Separator orientation="vertical" className="mr-1 h-4" />
 
 			{/* Title — always visible */}
@@ -74,7 +74,7 @@ export function DashboardHeader({ onSearch }: DashboardHeaderProps) {
 			</div>
 
 			{/* Constrained search area */}
-			<div ref={containerRef} className="flex items-center gap-1">
+			<div ref={containerRef} className="flex items-center gap-1 cursor-pointer">
 				{searchOpen && (
 					<div className="relative flex items-center">
 						<Search className="absolute left-2.5 size-3.5 text-muted-foreground pointer-events-none" />
@@ -115,7 +115,7 @@ export function DashboardHeader({ onSearch }: DashboardHeaderProps) {
 				<Button
 					variant="ghost"
 					size="icon"
-					className="relative size-8 text-muted-foreground hover:text-foreground"
+					className="relative size-8 text-muted-foreground hover:text-foreground cursor-pointer"
 				>
 					<Bell className="size-4" />
 					<span className="absolute top-1 right-1 size-2 rounded-full bg-destructive" />

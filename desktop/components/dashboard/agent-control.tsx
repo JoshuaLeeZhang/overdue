@@ -153,7 +153,7 @@ export function AgentControl({
 					disabled={isTransitioning}
 					size="lg"
 					className={cn(
-						"relative gap-2 px-6 font-semibold transition-all duration-300",
+						"relative gap-2 px-6 font-semibold transition-all duration-300 cursor-pointer",
 						isActive && !isTransitioning
 							? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							: "bg-primary text-primary-foreground hover:bg-primary/90",
